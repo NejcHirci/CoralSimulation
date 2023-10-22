@@ -15,3 +15,7 @@ While it may be one of the more advanced coral-community models, it uses a simpl
 I plan to track my progress through the [Open Issues](https://github.com/NejcHirci/CoralSimulation/issues), which also include a detailed list of tasks that I plan to accomplish for each milestone. Each of the issues is assigned to Milestones (deadline) and accessible below:
 
 [**1. Submission**](https://github.com/NejcHirci/CoralSimulation/milestone/1) | [**2. Submission**](https://github.com/NejcHirci/CoralSimulation/milestone/2) [**3. Submission**](https://github.com/NejcHirci/CoralSimulation/milestone/1)
+
+## Installation
+
+**TO BE ADDED.**
