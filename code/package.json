@@ -1,0 +1,35 @@
+{
+  "name": "coral-simulation",
+  "version": "1.0.0",
+  "description": "Source code for Coral Simulation web page",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "dev": "vite --port 3000"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NejcHirci/CoralSimulation.git"
+  },
+  "keywords": [
+    "coral-reef",
+    "simulation"
+  ],
+  "author": "Nejc Hirci",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/NejcHirci/CoralSimulation/issues"
+  },
+  "homepage": "https://github.com/NejcHirci/CoralSimulation#readme",
+  "dependencies": {
+    "@webgpu/types": "^0.1.38",
+    "vite": "^4.5.0",
+    "wgpu-matrix": "^2.5.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.8.10",
+    "typescript": "^5.2.2"
+  }
+}

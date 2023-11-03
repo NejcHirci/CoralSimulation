@@ -14,8 +14,28 @@ While it may be one of the more advanced coral-community models, it uses a simpl
 
 I plan to track my progress through the [Open Issues](https://github.com/NejcHirci/CoralSimulation/issues), which also include a detailed list of tasks that I plan to accomplish for each milestone. Each of the issues is assigned to Milestones (deadline) and accessible below:
 
-[**1. Submission**](https://github.com/NejcHirci/CoralSimulation/milestone/1) | [**2. Submission**](https://github.com/NejcHirci/CoralSimulation/milestone/2) [**3. Submission**](https://github.com/NejcHirci/CoralSimulation/milestone/1)
+[**1. Submission**](https://github.com/NejcHirci/CoralSimulation/milestone/1) | [Report Progress](https://github.com/NejcHirci/CoralSimulation/issues/1) | [Software Progress](https://github.com/NejcHirci/CoralSimulation/issues/2) 
+
+[**2. Submission**](https://github.com/NejcHirci/CoralSimulation/milestone/2) | [Report Progress](https://github.com/NejcHirci/CoralSimulation/issues/3) | [Software Progress](https://github.com/NejcHirci/CoralSimulation/issues/4) 
+
+[**3. Submission**](https://github.com/NejcHirci/CoralSimulation/milestone/3) | [Report Progress](https://github.com/NejcHirci/CoralSimulation/issues/5) | [Software Progress](https://github.com/NejcHirci/CoralSimulation/issues/6) 
 
 ## Installation
 
-**TO BE ADDED.**
+Web application is written in vanilla Typescript using [Vite](https://vitejs.dev/) as a bundler.
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/en/) (v20)
+
+### Setup
+
+```bash
+cd code
+npm install
+```
+### Run
+```bash
+npm run dev
+```
+You can open the application on [localhost:3000](http://localhost:3000/) or by pressing the `Open in Browser` button in the Vite console.
