@@ -31,3 +31,9 @@ coverage/
 
 # Visual Studio Code files
 .vscode/
+
+# Latex Build Files
+*.aux
+*.out
+*.synctex.gz
+

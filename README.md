@@ -4,6 +4,10 @@ Source code for Coral Simulation project for the course Collective Behavior @ FR
 Authors:
 - Nejc Hirci [Github](https://github.com/NejcHirci)
 
+## Useful links
+
+- [Report](./report/out/report.pdf)
+
 ## Project Idea
 
 In my project I will be focusing on simulating coral community on the following research paper, a starting point: [Combining agent-based, trait-based and demographic approaches to model coral-community dynamics](https://doi.org/10.7554/eLife.55993) by Carturan et. al. Their paper presents a coral-reef dynamics model that encapsulates ecological processes at different spatial scales, also carefully including species’ functional diversity. They model a number of natural processes in coral-reefs like competition growth, bleaching, grazing, algae invasions, sedimentation and others. Importantly: they calibrate and validate their model on observed empirical data from the Caribbean reefs and show that it exhibits realistic dynamics between coral communities with ecologically plausible dynamics of individual populations.
