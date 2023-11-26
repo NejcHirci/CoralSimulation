@@ -43,10 +43,13 @@ export class WebGPUEngine {
             device: this.device,
             format: this.canvasFormat
         });
+
+        window.addEventListener('resize', this.resize.bind(this));
     }
 
     // This is a simple example of a compute shader
     async CellularAutomata() {
+        console.log("Running Cellular Automata");
         const GRID_SIZE = 300;
 
         const vertices = new Float32Array([
@@ -78,7 +81,7 @@ export class WebGPUEngine {
 
         const cellVertShaderModule = await this.loadShaderModule('vert');
         const cellFragShaderModule = await this.loadShaderModule('frag');
-        const simulationShaderModule = await this.loadShaderModule('simulation');
+        const simulationShaderModule = await this.loadShaderModule('cellular_automata');
 
         // Cell storage buffer
         const cellStateArray = new Uint32Array(GRID_SIZE * GRID_SIZE);
@@ -234,5 +237,15 @@ export class WebGPUEngine {
         const response = await fetch(shaderUrl);
         const shaderCode = await response.text();
         return this.device.createShaderModule({ code: shaderCode });
+    }
+
+    resize() {
+        console.log('Engine resize');
+        this.canvas.width = this.canvas.clientWidth;
+        this.canvas.height = this.canvas.clientHeight;
+        this.context.configure({
+            device: this.device,
+            format: this.canvasFormat
+        });
     }
 }

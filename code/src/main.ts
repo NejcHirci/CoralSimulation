@@ -1,12 +1,7 @@
 import "./styles/style.css";
 import { WebGPUEngine } from "./engine/WebGPUEngine";
+import { ThreeJSApp } from "./engine/ThreeJSApp";
 
 
-const canvas = document.querySelector<HTMLCanvasElement>("#root")!;
-const engine = new WebGPUEngine(canvas); 
-
-await engine.initialize();
-
-
-// Lets try running simple compute shader example
-engine.CellularAutomata();
+const app = new ThreeJSApp();
+await app.init();
