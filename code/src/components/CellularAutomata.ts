@@ -15,7 +15,6 @@ export class CellularAutomata {
     colors: Float32Array;
 
     constructor(size: number) {
-        console.log('Initializing Cellular Automata');
         this.size = size;
 
         // Generate grid
