@@ -5,10 +5,11 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "vite --port 4000",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "dev": "vite --port 3000"
+    "predeploy": "npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",

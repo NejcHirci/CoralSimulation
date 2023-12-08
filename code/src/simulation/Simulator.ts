@@ -1,7 +1,8 @@
 export class Simulator {
   // Private parameters
-  private world: number[][][];  // 0 -> barren ground, -1 -> dead coral, >0 -> living coral
+  private world: number[][][]; // 0 -> barren ground, -1 -> dead coral, >0 -> living coral
   private light: number[][][];
+  private lightuptake: number[][][];
   private colonies: Colony[];
 
   // User defined parameters
@@ -44,7 +45,8 @@ export class Simulator {
     this.light = new Array(this.world_size);
     for (let y = 0; y < this.world_size; y++) {
       this.light[y] = new Array(this.world_size);
-      const init_level = this.light_lvl * this.light_atten^(this.world_size - y);
+      const init_level =
+        (this.light_lvl * this.light_atten) ^ (this.world_size - y);
       for (let z = 0; z < this.world_size; z++) {
         this.light[y][z] = new Array(this.world_size);
         for (let x = 0; x < this.world_size; x++) {
@@ -52,6 +54,7 @@ export class Simulator {
         }
       }
     }
+    this.lightuptake = this.light;
 
     // Randomly select locations to spawn new agents
     const locations = [];
@@ -67,7 +70,9 @@ export class Simulator {
     let id = 1;
     this.colonies = [];
     for (const location of locations) {
-      this.colonies.push(new Colony(id, location, GrowthForm.Branching, this.substrate_start));
+      this.colonies.push(
+        new Colony(id, location, GrowthForm.Branching, this.substrate_start)
+      );
       this.world[location[0]][location[1]][location[2]] = id++;
     }
   }
@@ -98,12 +103,12 @@ export class Simulator {
       }
     }
     // Light uptake
-    let lightuptake = this.light
+    this.lightuptake = this.light;
     for (let y = 0; y < this.world_size; y++) {
       for (let z = 0; z < this.world_size; z++) {
         for (let x = 0; x < this.world_size; x++) {
           if (this.world[y][z][x] <= 0) {
-            lightuptake[y][z][x] = 0;
+            this.lightuptake[y][z][x] = 0;
           }
         }
       }
@@ -113,7 +118,7 @@ export class Simulator {
       for (let z = 0; z < this.world_size; z++) {
         for (let x = 0; x < this.world_size; x++) {
           if (this.world[y][z][x] != 0) {
-            lightuptake[y][z][x] = 0;
+            this.lightuptake[y][z][x] = 0;
           }
         }
       }
@@ -123,25 +128,17 @@ export class Simulator {
   updateResources() {
     // Take each colony and update its resources
 
+    for (const colony of this.colonies) {
+      const x = colony.location[0];
+      const y = colony.location[1];
+      const z = colony.location[2];
+      const res =
+        light *
+        colony.resources *
+        (1 - colony.resources / this.substrate_resolution);
+      colony.resources += res;
+    }
   }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
   // FROM A DIFFERNET PAPER
 
@@ -224,25 +221,165 @@ export class Simulator {
 }
 
 class Colony {
-
   id: number;
   location: number[];
+  cells: Cell[];
+
   growthForm: GrowthForm;
   resources: number = 0;
   alive: boolean = true;
   age: number = 0;
+  world_size: number;
 
-  constructor(id:number, loc:number[], form:GrowthForm, res:number = 0) {
+  constructor(
+    id: number,
+    loc: number[],
+    form: GrowthForm,
+    res: number = 0,
+    ws: number = 100
+  ) {
     this.id = id;
     this.location = loc;
     this.growthForm = form;
     this.resources = res;
+    this.world_size = ws;
+    this.cells = [];
+
+    this.initCellList();
+  }
+
+  initCellList() {
+    // Initialize the list of cells based on the growth form
+    const allcells = this.createCellGrid();
+
+
+    switch (this.growthForm) {
+      case GrowthForm.Encrusting:
+        this.cells = this.encrusting(allcells);
+        break;
+      case GrowthForm.Hemispherical:
+        this.cells = this.hemispherical(allcells);
+        break;
+      case GrowthForm.Tabular:
+        this.cells = this.tabular(allcells);
+        break;
+      case GrowthForm.Branching:
+        this.cells = this.branching(allcells);
+        break;
+      case GrowthForm.Corymbose:
+        this.cells = this.corymbose(allcells);
+        break;
+    }
+
+    // Limit to the maximum radius of 49
+    this.cells = this.cells.filter((cell) => cell.pr! < 49);
+  }
+
+  encrusting(allcells: Cell[]) {
+    // Modeled as one dimensional circle
+    const validcells = allcells.filter((cell) => cell.z === 1)
+    validcells.forEach((cell) => { cell.pr = cell.l2_dist; });
+    return validcells;
+  }
+
+  hemispherical(allcells: Cell[]) {
+    const validcells = allcells;
+    validcells.forEach((cell) => { cell.pr = cell.l2_dist; });
+    return validcells;
+  }
+
+  tabular(allcells: Cell[]) {
+    const validcells = allcells.filter((cell) => (cell.xz_dist! <= 3 && cell.z < 12) || cell.z === 12);
+    validcells.forEach((cell) => { cell.pr = cell.l2_dist; });
+    return validcells;
+  }
+
+  branching(allcells: Cell[]) {
+    const ok = allcells.map((cell) => cell.xz_dist! <= 1.5);
+    const breakpoints: number[] = [10,20,30,40,50];
+
+    for (const bp of breakpoints) {
+      const y2:number[] = allcells.map((cell) => Number(cell.y === bp));
+      const ok2 = allcells.map((cell, index) => Math.sqrt((cell.x + y2[index]) ** 2 + (cell.y + y2[index]) ** 2) < 1.5 && y2[index] > 0);
+      const ok3 = allcells.map((cell, index) => Math.sqrt((cell.x - y2[index]) ** 2 + (cell.y + y2[index]) ** 2) < 1.5 && y2[index] > 0);
+      const ok4 = allcells.map((cell, index) => Math.sqrt((cell.x + y2[index]) ** 2 + (cell.y - y2[index]) ** 2) < 1.5 && y2[index] > 0);
+      const ok5 = allcells.map((cell, index) => Math.sqrt((cell.x - y2[index]) ** 2 + (cell.y - y2[index]) ** 2) < 1.5 && y2[index] > 0);
+      
+      ok.forEach((val, index) => {
+        ok[index] = val || ok2[index] || ok3[index] || ok4[index] || ok5[index];
+      });
+    }
+
+    const validcells = allcells.filter((_, index) => ok[index]);
+    validcells.forEach((cell) => { cell.pr = cell.l2_dist; });
+    return validcells;
+  }
+
+  corymbose(allcells: Cell[]) {
+    let ok = allcells.map((cell) => cell.xz_dist! <= 1.6);
+    let ang1 = 2 * Math.PI / 5;
+    for (let ang = ang1; ang <= 2 * Math.PI; ang += ang1) {
+      const dd = allcells.map((cell) => cell.y * Math.tan(Math.PI / 8));
+      const x11 = dd.map((d) => d * Math.sin(ang));
+      const z11 = dd.map((d) => d * Math.cos(ang));
+      const ok2 = allcells.map((cell, ind) => Math.sqrt(cell.x - x11[ind]) ** 2 + (cell.z - z11[ind]) ** 2 < 1.5);
+      ok = ok.map((val, index) => val || ok2[index]);
+    }
+    ang1 = 2 * Math.PI / 9;
+    for (let ang = ang1/3; ang <= 2 * Math.PI; ang += ang1) {
+      const dd = allcells.map((cell) => cell.y * Math.tan(Math.PI / 4));
+      const x11 = dd.map((d) => d * Math.sin(ang));
+      const z11 = dd.map((d) => d * Math.cos(ang));
+      const ok2 = allcells.map((cell, ind) => Math.sqrt(cell.x - x11[ind]) ** 2 + (cell.z - z11[ind]) ** 2 < 1.5);
+      ok = ok.map((val, index) => val || ok2[index]);
+    }
+    ang1 = 2 * Math.PI / 13;
+    for (let ang = 2 * ang1/3; ang <= 2 * Math.PI; ang += ang1) {
+      const dd = allcells.map((cell) => cell.y * Math.tan(Math.PI / 8));
+      const x11 = dd.map((d) => d * Math.sin(ang));
+      const z11 = dd.map((d) => d * Math.cos(ang));
+      const ok2 = allcells.map((cell, ind) => Math.sqrt(cell.x - x11[ind]) ** 2 + (cell.z - z11[ind]) ** 2 < 1.5);
+      ok = ok.map((val, index) => val || ok2[index]);
+    }
+
+    const validcells = allcells.filter((_, index) => ok[index]);
+    validcells.forEach((cell) => { cell.pr = cell.l2_dist; });
+    return validcells;
+  }
+
+  // Utility functions
+
+  createCellGrid(): Cell[] {
+    const allcells: Cell[] = [];
+    for (let y = -this.world_size/2; y <= this.world_size/2; y++) {
+      for (let z = -this.world_size/2; z <= this.world_size/2; z++) {
+        for (let x = -this.world_size/2; x <= this.world_size/2; x++) {
+          const cell: Cell = {x, y, z};
+        }
+      }
+    }
+
+    allcells.forEach((cell) => {
+      cell.l2_dist = Math.sqrt(cell.x ** 2 + cell.y ** 2 + cell.z ** 2);
+      cell.xz_dist = Math.sqrt(cell.x ** 2 + cell.z ** 2);
+    });
+    return allcells;
   }
 }
 
 enum GrowthForm {
-  Encrusting,
-  Hemispherical,
-  Tabular,
-  Branching,
+  Encrusting, // Leather Corals
+  Hemispherical, // Brain Corals
+  Tabular, // Table Corals
+  Branching, // Staghorn Corals
+  Corymbose, // Plate Corals
+}
+
+interface Cell {
+  x: number;
+  y: number;
+  z: number;
+  l2_dist?: number;
+  xz_dist?: number;
+  pr?: number;
 }
