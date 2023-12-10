@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 
+// @ts-ignore
 import { MeshBasicNodeMaterial, wgslFn, attribute } from 'three/examples/jsm/nodes/Nodes.js';
 
 export class CellularAutomata {
@@ -60,6 +61,7 @@ export class CellularAutomata {
                 return vec4<f32>(color.r, color.g, color.b, color.a);      
             }
         `);
+        // @ts-ignore
         material.colorNode = colorNode({color: attribute('color')});
 
         this.setColorAt(this.size * this.size, [1, 0, 0, 1]);
