@@ -1,87 +1,101 @@
-import * as THREE from 'three';
+import { Color3, Matrix, Mesh, MeshBuilder, Scene, StandardMaterial } from "@babylonjs/core";
 
-// @ts-ignore
-import { MeshBasicNodeMaterial, wgslFn, attribute } from 'three/examples/jsm/nodes/Nodes.js';
+import { Colony, GrowthForm } from "../simulation/Simulator";
 
 export class CellularAutomata {
+  // Grid size
+  size: number;
+  grid!: Mesh;
 
-    // Grid size
-    size: number;
-    grid: THREE.InstancedMesh;
+  offset: number;
+  colors: Float32Array;
 
-    offset: number;
-    dummy: THREE.Object3D;
-    colors: Float32Array;
+  constructor(size: number, scene: Scene) {
+    this.size = size;
 
-    constructor(size: number) {
-        this.size = size;
+    this.colors = new Float32Array(this.size * this.size * this.size * 4); // 4 for RGBA
 
-        // Generate grid
-        this.offset = (this.size - 1) / 2;
-        this.dummy = new THREE.Object3D();
-        this.colors = new Float32Array( this.size * this.size * this.size * 4 ); // 4 for RGBA
+    this.grid = this.generateGrid(scene);
 
-        this.grid = this.generateGrid();
-    }
+    // Testing different Corals
+    let testColony = new Colony(
+      1,
+      [this.size / 2, 0, this.size / 2],
+      GrowthForm.Hemispherical,
+      1,
+      this.size
+    );
+    let grid = testColony.getGrid();
 
-    // Generate grid
-    generateGrid() {
-        const grid = new THREE.Group();
-
-        // Generate cells as InstancedMesh
-        const geometry = new THREE.BoxGeometry(1, 1, 1);
-        const material = new MeshBasicNodeMaterial({transparent: true});
-
-        // Must write a ColorNode see https://discourse.threejs.org/t/currently-does-threejs-fully-support-the-webgpu-api/52592/5 https://github.com/mrdoob/three.js/blob/master/examples/webgpu_instance_mesh.html
-        
-        const mesh = new THREE.InstancedMesh(geometry, material, this.size * this.size * this.size);
-
-        // Set positions
-        let i = 0
-        for ( let x = 0; x < this.size; x ++ ) {
-            for ( let y = 0; y < this.size; y ++ ) {
-                for ( let z = 0; z < this.size; z ++ ) {
-                    this.dummy.position.set( this.offset - x, this.offset - y, this.offset - z );
-                    this.dummy.updateMatrix();
-                    mesh.setMatrixAt( i ++, this.dummy.matrix );
-                }
-            }
+    for (let i = 0; i < this.size; i++) {
+      for (let j = 0; j < this.size; j++) {
+        for (let k = 0; k < this.size; k++) {
+          let index = i * this.size * this.size + j * this.size + k;
+          if (grid[j][k][i] == 1) {
+            this.setColorAt(index, [1, 1, 0, 1]);
+          }
         }
+      }
+    }
+  }
 
-        for ( let i = 0; i < this.colors.length; i += 4 ) {
-            this.colors[ i ] = 1;
-            this.colors[ i + 1 ] = 1;
-            this.colors[ i + 2 ] = 1;
-            this.colors[ i + 3 ] = 0.3;
+  // Generate grid
+  generateGrid(scene: Scene) {
+    const bufferMatrices = new Float32Array(this.size * this.size * this.size * 16);
+
+    // Set positions
+    let matrix = Matrix.Identity();
+    let ind = 0;
+    for (let y = 0; y < this.size; y++) {
+      for (let x = 0; x < this.size; x++) {
+        for (let z = 0; z < this.size; z++) {
+          matrix = Matrix.Translation(this.offset - x, this.offset - y, this.offset - z);
+          matrix.copyToArray(bufferMatrices, (ind * 16));
+          ind++;
         }
-        const instancedColor = new THREE.InstancedBufferAttribute(this.colors, 4);
-        mesh.geometry.setAttribute('color', instancedColor);
-        const colorNode = wgslFn(`
-            fn colorNode(color: vec4<f32>) -> vec4<f32> {
-                return vec4<f32>(color.r, color.g, color.b, color.a);      
-            }
-        `);
-        // @ts-ignore
-        material.colorNode = colorNode({color: attribute('color')});
-
-        this.setColorAt(this.size * this.size, [1, 0, 0, 1]);
-        return mesh;
+      }
     }
 
-    // Get Grid
-    getGrid() {
-        return this.grid;
+    var col = 0;
+    for (let i = 0; i < this.colors.length; i += 4) {
+      var coli = Math.floor(col);
+
+      this.colors[i + 0] = ((coli & 0xff0000) >> 16) / 255;
+      this.colors[i * 4 + 1] = ((coli & 0x00ff00) >> 8) / 255;
+      this.colors[i * 4 + 2] = ((coli & 0x0000ff) >> 0) / 255;
+      this.colors[i * 4 + 3] = 1.0;
+
+      col += 0xffffff / (this.colors.length / 4);
     }
 
-    update() {
-        if (this.grid) {
-        }
-    }
+    // Create grid of cubes
+    const mesh = MeshBuilder.CreateBox('box', {}, scene);
 
-    setColorAt(i: number, color: number[]) {
-        this.colors[ i * 3 ] = color[0];
-        this.colors[ i * 3 + 1 ] = color[1];
-        this.colors[ i * 3 + 2 ] = color[2];
-        this.colors[ i * 3 + 3 ] = color[3];
+    mesh.thinInstanceSetBuffer("matrix", bufferMatrices, 16, true);
+    mesh.thinInstanceSetBuffer("color", this.colors, 4);
+
+    let mat = new StandardMaterial("mat", scene);
+    mat.disableLighting = true;
+    mat.emissiveColor = new Color3(1, 1, 1);
+    mesh.material = mat;
+
+    return mesh;
+  }
+
+  // Get Grid
+  getGrid() {
+    return this.grid;
+  }
+
+  update() {
+    if (this.grid) {
     }
+  }
+
+  setColorAt(i: number, color: number[]) {
+    this.colors[i * 4] = color[0];
+    this.colors[i * 4 + 1] = color[1];
+    this.colors[i * 4 + 2] = color[2];
+    this.colors[i * 4 + 3] = color[3];
+  }
 }

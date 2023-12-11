@@ -27,7 +27,7 @@ export class ThreeJSApp {
     automata!: CellularAutomata;
 
     constructor() {
-        this.automata = new CellularAutomata(8);
+        this.automata = new CellularAutomata(100);
     }
 
     async init() {
@@ -53,7 +53,7 @@ export class ThreeJSApp {
 
         // Init camera
         const aspect = window.innerWidth / window.innerHeight;
-        this.camera = new THREE.PerspectiveCamera(75, aspect, 0.01, 100);
+        this.camera = new THREE.PerspectiveCamera(75, aspect, 0.01, 1000);
         this.camera.position.set(0, 5, 10);
         this.camera.lookAt(0, 0, 0);
 

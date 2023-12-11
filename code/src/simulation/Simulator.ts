@@ -247,7 +247,7 @@ export class Simulator {
   }
 }
 
-class Colony {
+export class Colony {
   id: number;
   location: number[];
   cells: Cell[];
@@ -298,7 +298,7 @@ class Colony {
     }
 
     // Limit to the maximum radius of 49
-    this.cells = this.cells.filter((cell) => cell.pr! < 49);
+    this.cells = this.cells.filter((cell) => cell.pr! < this.world_size / 2);
   }
 
   encrusting(allcells: Cell[]) {
@@ -414,10 +414,11 @@ class Colony {
 
   createCellGrid(): Cell[] {
     const allcells: Cell[] = [];
-    for (let y = -this.world_size / 2; y <= this.world_size / 2; y++) {
-      for (let z = -this.world_size / 2; z <= this.world_size / 2; z++) {
-        for (let x = -this.world_size / 2; x <= this.world_size / 2; x++) {
+    for (let y = 0; y < this.world_size; y++) {
+      for (let z = -this.world_size / 2; z < this.world_size / 2; z++) {
+        for (let x = -this.world_size / 2; x < this.world_size / 2; x++) {
           const cell: Cell = { x, y, z };
+          allcells.push(cell);
         }
       }
     }
@@ -438,9 +439,29 @@ class Colony {
       alive: cell.alive,
     }));
   }
+
+  getGrid(): number[][][] {
+    // Return the grid with the colony cells marked
+    const grid = new Array(this.world_size);
+    for (let y = 0; y < this.world_size; y++) {
+      grid[y] = new Array(this.world_size);
+      for (let z = 0; z < this.world_size; z++) {
+        grid[y][z] = new Array(this.world_size);
+        for (let x = 0; x < this.world_size; x++) {
+            grid[y][z][x] = 0;
+        }
+      }
+    }
+
+    for (const cell of this.getCells()) {
+      grid[cell.y][cell.z][cell.x] = this.id;
+    }
+
+    return grid;
+  }
 }
 
-enum GrowthForm {
+export enum GrowthForm {
   Encrusting, // Leather Corals
   Hemispherical, // Brain Corals
   Tabular, // Table Corals

@@ -1,7 +1,7 @@
 
 export const SHADER_PATH = '/src/shaders/';
 
-export class WebGPUEngine {
+export class MyWebGPUEngine {
 
     canvas  : HTMLCanvasElement;
     device! : GPUDevice;
