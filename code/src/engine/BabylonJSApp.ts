@@ -1,7 +1,7 @@
 import "@babylonjs/core/Debug/debugLayer";
 import "@babylonjs/inspector";
 
-import { WebGPUEngine, Scene, ArcRotateCamera, Vector3, HemisphericLight, Mesh, MeshBuilder } 
+import { WebGPUEngine, Scene, ArcRotateCamera, Vector3, Color4 } 
 from "@babylonjs/core";
 
 import { CellularAutomata } from "../components/CellularAutomata";
@@ -13,6 +13,7 @@ export class BabylonJSApp {
 
   // BabylonJS objects
   scene!: Scene;
+  camera!: ArcRotateCamera;
 
   // My Objects
   simulator!: CellularAutomata;
@@ -30,7 +31,9 @@ export class BabylonJSApp {
     this.engine.initAsync().then(() => {
       this.createScene();
 
-      this.simulator = new CellularAutomata(6, this.scene);
+      this.simulator = new CellularAutomata(20, this.scene);
+
+      this.camera.setTarget(this.simulator.grid);
       
       window.addEventListener("keydown", (event) => this.keyDown(event));
 
@@ -45,8 +48,12 @@ export class BabylonJSApp {
   createScene() {
     this.scene = new Scene(this.engine);
 
-    const camera = new ArcRotateCamera("Camera", -Math.PI / 5, Math.PI / 3, 200, Vector3.Zero(), this.scene);
+    this.scene.clearColor = new Color4(0,0,0,1);
+
+    const camera = new ArcRotateCamera("Camera", -Math.PI / 5, Math.PI / 3, 50, Vector3.Zero(), this.scene);
+    camera.setTarget(Vector3.Zero());
     camera.attachControl(this.canvas, true);
+    this.camera = camera;
 
     return this.scene;
   }

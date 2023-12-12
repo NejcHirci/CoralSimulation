@@ -414,8 +414,8 @@ export class Colony {
 
   createCellGrid(): Cell[] {
     const allcells: Cell[] = [];
-    for (let y = 0; y < this.world_size; y++) {
-      for (let z = -this.world_size / 2; z < this.world_size / 2; z++) {
+    for (let y = -this.world_size / 2; y < this.world_size / 2; y++) {
+      for (let z = 0; z < this.world_size; z++) {
         for (let x = -this.world_size / 2; x < this.world_size / 2; x++) {
           const cell: Cell = { x, y, z };
           allcells.push(cell);
@@ -454,7 +454,8 @@ export class Colony {
     }
 
     for (const cell of this.getCells()) {
-      grid[cell.y][cell.z][cell.x] = this.id;
+      let y = this.world_size - 1 - cell.y;
+      grid[this.world_size - 1 - cell.z][cell.y][cell.x] = this.id;
     }
 
     return grid;
