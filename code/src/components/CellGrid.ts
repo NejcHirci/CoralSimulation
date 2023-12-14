@@ -1,8 +1,6 @@
 import { Color3, Color4, Engine, Matrix, Mesh, MeshBuilder, Scene, StandardMaterial, Vector3 } from "@babylonjs/core";
 
-import { Colony, GrowthForm } from "../simulation/Simulator";
-
-export class CellularAutomata {
+export class CellGrid {
   // Grid size
   size: number;
   grid!: Mesh;
@@ -17,27 +15,6 @@ export class CellularAutomata {
     this.colors = new Float32Array(this.size * this.size * this.size * 4); // 4 for RGBA
 
     this.grid = this.generateGrid(scene);
-    
-    // Testing different Corals
-    let testColony = new Colony(
-      1,
-      [this.size / 2, this.size / 2, 0],
-      GrowthForm.Tabular,
-      1,
-      this.size
-    );
-    let grid = testColony.getGrid();
-
-    for (let y = 0; y < this.size; y++) {
-      for (let x = 0; x < this.size; x++) {
-        for (let z = 0; z < this.size; z++) {
-          let index = x * this.size * this.size + y * this.size + z;
-          if (grid[x][y][z] == 1) {
-            this.setColorAt(index, [1, 1, 0, 1]);
-          }
-        }
-      }
-    }
   }
 
   // Generate grid
@@ -94,8 +71,15 @@ export class CellularAutomata {
     return this.grid;
   }
 
-  update() {
-    if (this.grid) {
+  update(world: number[][][]) {
+    for (let y = 0; y < this.size; y++) {
+      for (let z = 0; z < this.size; z++) {
+        for (let x = 0; x < this.size; x++) {
+          const i = x + z * this.size + y * this.size * this.size;
+          const color = world[y][z][x] > 0 ? [1, 0, 0, 1] : [0, 0, 0, 0];
+          this.setColorAt(i, color);
+        }
+      }
     }
   }
 

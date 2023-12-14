@@ -6,7 +6,7 @@ import WebGPURenderer from 'three/examples/jsm/renderers/webgpu/WebGPURenderer';
 
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
-import { CellularAutomata } from '../components/CellularAutomata';
+import { CellularAutomata } from '../components/CellGrid';
 
 export class ThreeJSApp {
 
@@ -24,10 +24,10 @@ export class ThreeJSApp {
     rotateSpeed = 0.1;
 
     // Cellular Automata
-    automata!: CellularAutomata;
+    automata: CellularAutomata;
 
     constructor() {
-        this.automata = new CellularAutomata(100);
+        //this.automata = new CellularAutomata(100);
     }
 
     async init() {
@@ -76,7 +76,6 @@ export class ThreeJSApp {
         // Init scene models
         this.models = new THREE.Group();
         this.scene.add(this.models);
-        this.models.add(this.automata.getGrid());
         console.log('Three JS App initialized');
     }
 

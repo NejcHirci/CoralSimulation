@@ -4,7 +4,8 @@ import "@babylonjs/inspector";
 import { WebGPUEngine, Scene, ArcRotateCamera, Vector3, Color4 } 
 from "@babylonjs/core";
 
-import { CellularAutomata } from "../components/CellularAutomata";
+import { CellGrid } from "../components/CellGrid";
+import { Simulator } from "../simulation/Simulator";
 
 export class BabylonJSApp {
   // Canvas and engine
@@ -16,7 +17,8 @@ export class BabylonJSApp {
   camera!: ArcRotateCamera;
 
   // My Objects
-  simulator!: CellularAutomata;
+  simulator!: Simulator;
+  cellGrid!: CellGrid;
 
   constructor() {
     // First create and add the canvas to the html document
@@ -31,18 +33,29 @@ export class BabylonJSApp {
     this.engine.initAsync().then(() => {
       this.createScene();
 
-      this.simulator = new CellularAutomata(20, this.scene);
+      this.simulator = new Simulator();
+      this.cellGrid = new CellGrid(this.simulator.world_size, this.scene);
 
-      this.camera.setTarget(this.simulator.grid);
+      this.camera.setTarget(this.cellGrid.grid);
       
       window.addEventListener("keydown", (event) => this.keyDown(event));
 
       window.addEventListener("resize", () => { this.engine.resize(); });
 
+      // Run the simulation step every second
+      setInterval(this.updateSimulator.bind(this), 1000);
+
       this.engine.runRenderLoop(() => {
         this.scene.render();
       });
     });
+  }
+
+  updateSimulator() {
+    console.log("Updating simulator");
+    this.simulator.step();
+    // Update the cell grid
+    this.cellGrid.update(this.simulator.world);
   }
 
   createScene() {
