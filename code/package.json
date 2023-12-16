@@ -2,7 +2,8 @@
   "name": "coral-simulation",
   "version": "1.0.0",
   "description": "Source code for Coral Simulation web page",
-  "main": "index.html",
+  "type": "module",
+  "main": "index.js",
   "homepage": "https://nejchirci.github.io/CoralSimulation"
   "scripts": {
     "dev": "vite --port 4000",
