@@ -1,11 +1,11 @@
 import "@babylonjs/core/Debug/debugLayer";
 import "@babylonjs/inspector";
 
-import { WebGPUEngine, Scene, ArcRotateCamera, HemisphericLight, Vector3, Color4, MeshBuilder } 
+import { WebGPUEngine, Scene, HemisphericLight, Vector3, Color4, MeshBuilder, UniversalCamera } 
 from "@babylonjs/core";
 
 import { CellGrid } from "../components/CellGrid";
-import { Simulator } from "../simulation/Simulator";
+import { Simulator, getCells, GrowthForm  } from "../simulation/Simulator";
 
 export class BabylonJSApp {
   // Canvas and engine
@@ -14,7 +14,7 @@ export class BabylonJSApp {
 
   // BabylonJS objects
   scene!: Scene;
-  camera!: ArcRotateCamera;
+  camera!: UniversalCamera;
 
   // My Objects
   simulator!: Simulator;
@@ -22,7 +22,7 @@ export class BabylonJSApp {
 
   // Simulator updates
   lastUpdate = 0;
-  updateInterval = 100;
+  updateInterval = 500;
   inUpdate = false;
 
   constructor() {
@@ -41,7 +41,6 @@ export class BabylonJSApp {
       this.createScene();
       this.cellGrid = new CellGrid(this.simulator.world_size, this.scene);
       this.cellGrid.addCells(this.simulator.new_cells);
-      this.camera.setTarget(this.cellGrid.grid);
 
       // Add resize listener
       window.addEventListener("resize", () => {
@@ -80,7 +79,8 @@ export class BabylonJSApp {
 
     this.scene.clearColor = new Color4(0,0,0,1);
 
-    const camera = new ArcRotateCamera("Camera", -Math.PI / 5, Math.PI / 3, 150, new Vector3(0, 50, 0), this.scene);
+    const camera = new UniversalCamera("Camera", new Vector3(150, 20, 0), this.scene);
+    camera.setTarget(new Vector3(0, -this.simulator.world_size/2, 0));
     camera.attachControl(this.canvas, false);
     this.camera = camera;
 

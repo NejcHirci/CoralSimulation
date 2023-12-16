@@ -14,8 +14,8 @@ function initCellList(ws:number)
   const allcells = createCellGrid(ws);
 
   encrusting = getEncrusting(allcells).filter((cell) => cell.pr! < ws / 2);
-  hemispherical = getHemispherical(allcells).filter((cell) => cell.pr! < ws / 2);
-  tabular = getTabular(allcells).filter((cell) => cell.pr! < ws / 2);
+  hemispherical = getHemispherical(allcells).filter((cell) => cell.pr! < ws / 4);
+  tabular = getTabular(allcells).filter((cell) => cell.pr! < ws / 4);
   branching = getBranching(allcells, ws).filter((cell) => cell.pr! < ws / 2);
   corymbose = getCorymbose(allcells).filter((cell) => cell.pr! < ws / 2);
 }
@@ -39,8 +39,8 @@ function getHemispherical(allcells: Cell[]) {
 
 function getTabular(allcells: Cell[]) {
   // The stem is defined by xz_dist and the top is defined by y
-  let stem_height = 10;
-  let stem_radius = 2;
+  let stem_height = 20;
+  let stem_radius = 5;
   const validcells = allcells.filter(
     (cell) =>
       ((cell.xz_dist! <= stem_radius && cell.y < stem_height) ||
@@ -157,6 +157,30 @@ function createCellGrid(ws:number): Cell[] {
     cell.xz_dist = Math.sqrt(cell.x ** 2 + cell.z ** 2);
   });
   return allcells;
+}
+
+export function getCells(form: GrowthForm, offset: number[]) {
+  let cells: Cell[] = [];
+  switch (form) {
+    case GrowthForm.Branching:
+      cells = branching;
+      break;
+    case GrowthForm.Corymbose:
+      cells = corymbose;
+      break;
+    case GrowthForm.Encrusting:
+      cells = encrusting;
+      break;
+    case GrowthForm.Hemispherical:
+      cells = hemispherical;
+      break;
+    case GrowthForm.Tabular:
+      cells = tabular;
+      break;
+  }
+  return cells.map((cell) => {
+    return [cell.x + offset[0], cell.y + offset[1], cell.z + offset[2], form+1];
+  });
 }
 
 export class Simulator {
@@ -416,46 +440,56 @@ export class Simulator {
 
   death() {
     // Create a list of dead cells for each colony
-    let deadcells = Array.from({ length: this.colonies.length }, () => 0);
-    let alivecells = Array.from({ length: this.colonies.length }, () => 0);
+    let deadcells: { [key: number]: number } = {};
+    let alivecells: { [key: number]: number } = {};
     this.light.forEach((row, y) =>
       row.forEach((col, z) =>
         col.forEach((_, x) => {
           // If the light level is below the maintenance level, the cell dies
           if (this.lightuptake[y][z][x] < this.maint && this.world[y][z][x] > 0) {
-            deadcells[this.world[y][z][x] - 1] += 1;
+            if (deadcells[this.world[y][z][x]] === undefined) {
+              deadcells[this.world[y][z][x]] = 0;
+              alivecells[this.world[y][z][x]] = 0;
+            }
+
+            deadcells[this.world[y][z][x]] += 1;
+            this.world[y][z][x] = -1;
           }
-          if (this.world[y][z][x] > 0) {
-            alivecells[this.world[y][z][x] - 1] += 1;
+          else if (this.world[y][z][x] > 0) {
+            if (alivecells[this.world[y][z][x]] === undefined) {
+              deadcells[this.world[y][z][x]] = 0;
+              alivecells[this.world[y][z][x]] = 0;
+            }
+            alivecells[this.world[y][z][x]] += 1;
           }
         })
       )
     );
 
-    // Check if any colonies died
-    for (let i = 0; i < this.colonies.length; i++) {
-      if (deadcells[i] === alivecells[i]) {
-        // Get colony ID
-        console.log(`Colony ${i + 1} died due to light.`);
+    // for all values in deadcells, check if they are equal to alivecells
+    for (const key of Object.keys(deadcells)) {
+      if (deadcells[key] === alivecells[key]) {
+        const id = parseInt(key);
+        console.log(`Colony ${id} died due to light.`);
         // Set world to 0 where disturbed colonies have been removed
         this.world.forEach((row, y) =>
           row.forEach((col, z) =>
             col.forEach((_, x) => {
-              if (this.world[y][z][x] === i + 1) {
+              if (this.world[y][z][x] === id) {
                 this.world[y][z][x] = -1;
-                this.dead_cells.push([x, y, z, i + 1]);
+                this.dead_cells.push([x, y, z, id]);
               }
             })
           )
         );
-        this.colonies[i].alive = false;
-        this.deadcolonies.push(this.colonies[i]);
+        this.colonies[id].alive = false;
+        const colony = this.colonies.find((colony) => colony.id === id);
+        this.deadcolonies.push(colony);
         this.nlooplight = 50;
       }
     }
     // Remove dead colonies
     this.colonies = this.colonies.filter((colony) => colony.alive);
-    console.log(this.colonies);
   }
 
   growth() {
@@ -537,6 +571,9 @@ export class Simulator {
           // Update world with new cells
           newcells.forEach((coord) => {
             // X, Y, Z -> Y, Z, X
+            if (colony === undefined) {
+              console.log("Colony is undefined");
+            }
             this.world[coord[1]][coord[2]][coord[0]] = colony.id;
             // Add new cells to the new_cells list
             this.new_cells.push([coord[0], coord[1], coord[2], colony.growthForm]);
