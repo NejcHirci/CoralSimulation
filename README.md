@@ -1,6 +1,8 @@
 # Coral Competition Simulation
 Source code for Coral Simulation project for the course Collective Behavior @ FRI 2023
 
+Deployed implementation available at [Coral Simulation](https://nejchirci.github.io/CoralSimulation)
+
 Authors:
 - Nejc Hirci [Github](https://github.com/NejcHirci)
 
