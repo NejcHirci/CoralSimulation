@@ -19,7 +19,6 @@ export class CellGrid {
     this.offset = this.size / 2;
 
     this.color_wheel = [];
-    this.color_wheel.push([0,0,0,0]);
     let huedelta = Math.trunc(360 / 5);
     for (let i = 0; i < 60; i++) {
       let hue = i * huedelta;
@@ -32,9 +31,9 @@ export class CellGrid {
   }
 
   generateBaseThinInstance(scene: Scene) {
-    let mesh = MeshBuilder.CreateSphere('sphere', {diameter: 1}, scene);
+    let mesh = MeshBuilder.CreateSphere('sphere', {diameter: 1, segments: 1}, scene);
     mesh.hasVertexAlpha = true;
-    mesh.position = Vector3.Zero();
+    mesh.position = new Vector3(0, 0, 0);
 
     let material = new StandardMaterial("base", scene);
     material.forceDepthWrite = true;
@@ -114,8 +113,9 @@ export class CellGrid {
     // Cells is a list of [x, y, z, id, form]
     for (let cell of cells) {
       // Check if cell already exists
-      if (this.active_cells.find((c) => c[0] === cell[0] && c[1] === cell[1] && c[2] === cell[2])) {
-        this.grid.thinInstanceSetAttributeAt("color", cell[0], this.color_wheel[cell[3]]);
+      const active_cell = this.active_cells.find((c) => c[0] === cell[0] && c[1] === cell[1] && c[2] === cell[2]);
+      if (active_cell !== undefined) {
+        this.grid.thinInstanceSetAttributeAt("color", active_cell[3], this.color_wheel[cell[3]]);
       } else {
         this.addInstance(cell[0], cell[1], cell[2], this.color_wheel[cell[3]]);
       }
@@ -134,7 +134,7 @@ export class CellGrid {
     for (let cell of cells) {
       // Get IDX of cell
       let idx = this.active_cells.findIndex((c) => c[0] === cell[0] && c[1] === cell[1] && c[2] === cell[2]);
-      this.grid.thinInstanceSetAttributeAt("color", idx, [1,1,1,0.5]);
+      this.grid.thinInstanceSetAttributeAt("color", idx, [1,1,1,0.9]);
     }
   }
 

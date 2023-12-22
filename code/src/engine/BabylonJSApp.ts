@@ -1,7 +1,7 @@
 import "@babylonjs/core/Debug/debugLayer";
 import "@babylonjs/inspector";
 
-import { WebGPUEngine, Scene, HemisphericLight, Vector3, Color4, MeshBuilder, UniversalCamera } 
+import { WebGPUEngine, Scene, HemisphericLight, Vector3, Color4, MeshBuilder, UniversalCamera, DirectionalLight } 
 from "@babylonjs/core";
 
 import { CellGrid } from "../components/CellGrid";
@@ -22,7 +22,7 @@ export class BabylonJSApp {
 
   // Simulator updates
   lastUpdate = 0;
-  updateInterval = 500;
+  updateInterval = 50;
   inUpdate = false;
 
   constructor() {
@@ -40,7 +40,6 @@ export class BabylonJSApp {
 
       this.createScene();
       this.cellGrid = new CellGrid(this.simulator.world_size, this.scene);
-      this.cellGrid.addCells(this.simulator.new_cells);
 
       // Add resize listener
       window.addEventListener("resize", () => {
@@ -55,7 +54,7 @@ export class BabylonJSApp {
       // Run the simulation step every second
       this.engine.runRenderLoop(() => {
         this.scene.render();
-        if (!this.inUpdate && Date.now() - this.lastUpdate > this.updateInterval) {
+        if (!this.inUpdate) {
           this.updateSimulator();
         }
       });
@@ -64,12 +63,11 @@ export class BabylonJSApp {
 
   updateSimulator() {
     this.inUpdate = true;
+    if (this.simulator.sim_ready) {
+      this.cellGrid.addCells(this.simulator.new_cells);
+      this.cellGrid.removeCells(this.simulator.dead_cells);
+    }
     this.simulator.step();
-
-    let sUpdate = Date.now();
-    this.cellGrid.addCells(this.simulator.new_cells);
-    this.cellGrid.removeCells(this.simulator.dead_cells);
-    //console.log("CellGrid update time: " + (Date.now() - sUpdate));
     this.lastUpdate = Date.now();
     this.inUpdate = false;
   }
@@ -81,15 +79,14 @@ export class BabylonJSApp {
 
     const camera = new UniversalCamera("Camera", new Vector3(150, 20, 0), this.scene);
     camera.setTarget(new Vector3(0, -this.simulator.world_size/2, 0));
-    camera.attachControl(this.canvas, false);
     this.camera = camera;
 
     // Create a light
-    const light = new HemisphericLight("light", new Vector3(0, 1, 0), this.scene);
-    light.intensity = 0.7;
+    const light = new DirectionalLight("light", new Vector3(0, -1, 0), this.scene);
+    light.intensity = 1;
 
     const ground = MeshBuilder.CreateGround("ground", {width: 100, height: 100}, this.scene);
-    ground.position = new Vector3(0, -this.simulator.world_size/2, 0);
+    ground.position = new Vector3(0, -this.simulator.world_size/2-1, 0);
 
     return this.scene;
   }
