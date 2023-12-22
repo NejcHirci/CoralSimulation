@@ -22,7 +22,7 @@ export class BabylonJSApp {
 
   // Simulator updates
   lastUpdate = 0;
-  updateInterval = 50;
+  updateInterval = 250;
   inUpdate = false;
 
   constructor() {
@@ -54,7 +54,7 @@ export class BabylonJSApp {
       // Run the simulation step every second
       this.engine.runRenderLoop(() => {
         this.scene.render();
-        if (!this.inUpdate) {
+        if (!this.inUpdate && this.lastUpdate + this.updateInterval < Date.now() && this.simulator.sim_ready) {
           this.updateSimulator();
         }
       });
@@ -63,10 +63,8 @@ export class BabylonJSApp {
 
   updateSimulator() {
     this.inUpdate = true;
-    if (this.simulator.sim_ready) {
-      this.cellGrid.addCells(this.simulator.new_cells);
-      this.cellGrid.removeCells(this.simulator.dead_cells);
-    }
+    this.cellGrid.addCells(this.simulator.new_cells);
+    this.cellGrid.removeCells(this.simulator.dead_cells);
     this.simulator.step();
     this.lastUpdate = Date.now();
     this.inUpdate = false;

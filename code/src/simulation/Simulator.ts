@@ -634,6 +634,7 @@ export class Simulator {
               coord[2],
               colony.growthForm,
             ]);
+            colony.size += 1;
           });
         }
         colony.age += 1;
@@ -652,20 +653,12 @@ export class Simulator {
         ];
         if (this.world[loc[1]][loc[2]][loc[0]] === 0) {
           // Choose form with probability based on the number of live cells of each type
-          let formCount: number[] = [];
-          for (let y = 0; y < this.world_size; y++) {
-            for (let z = 0; z < this.world_size; z++) {
-              for (let x = 0; x < this.world_size; x++) {
-                if (this.world[y][z][x] > 0) {
-                  let colony = this.colonies.find(
-                    (colony) => colony.id === this.world[y][z][x]
-                  );
-                  formCount[colony.growthForm] += 1;
-                }
-              }
-            }
+          let formCount: number[] = [0,0,0,0,0];
+          let total = 0;
+          for (const colony of this.colonies) {
+            formCount[colony.growthForm] += colony.size;
+            total += colony.size;
           }
-          let total = formCount.reduce((sum, val) => sum + val, 0);
           let prob = formCount.map((val) => val / total);
 
           // Select form based on the number of live cells
@@ -793,8 +786,10 @@ export class Colony {
   alive: boolean = true;
   age: number = 0;
   world_size: number;
-  size: number = 1;
   mort: number;
+
+  // Active parameters
+  size = 1;
 
   constructor(
     id: number,
