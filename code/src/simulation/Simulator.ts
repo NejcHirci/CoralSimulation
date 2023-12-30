@@ -244,10 +244,9 @@ export class Simulator {
   random_recruits = 1; // 1 random allocation of growth forms, else according to the number of live cells of each colony
 
   // Disturbance parameters
-  low_disturb_freq = 52 * 2;   // every 2 years
-  high_disturb_freq = 52 * 5;  // every 5 years
-  low_disturb_int = 20;        // smaller number is higher disturbance
-  high_disturb_int = 1.5       // smaller number is higher disturbance
+  disturb_freq = 52 + 26; // every 2 years
+  low_disturb_int = 20; // smaller number is higher disturbance
+  high_disturb_int = 1.5; // smaller number is higher disturbance
 
   // Light and Substrate parameters
   maint = 0.1;
@@ -367,12 +366,10 @@ export class Simulator {
     this.spawning();
     // Background Mortality ----
     this.naturalMortality();
-    // Disturbance low intensity ----
-    // Disturbance high intensity ----
+    // Disturbance low/high intensity ----
+    this.disturbance();
     this.ts += 1;
   }
-
-  // NAIVE IMPLEMENTATION
 
   lightUpdate() {
     for (let i = 0; i < this.nlooplight; i++) {
@@ -452,9 +449,8 @@ export class Simulator {
             if (this.world[y][z][x] > 0) {
               this.lightuptake[y][z][x] = this.light[y][z][x];
             }
-            // We set to 0 where there are either dead colonies or barren ground
-            if (this.world[y][z][x] === 0) {
-              this.lightuptake[y][z][x] = 0;
+            if (this.world[y][z][x] !== 0) {
+              this.light[y][z][x] = 0;
             }
           }
         }
@@ -565,10 +561,18 @@ export class Simulator {
 
         // Update the coordinates of the cells but make the x and z coordinates wrap around
         down.forEach((coord) => (coord[1] = Math.max(coord[1] - 1, 0)));
-        up.forEach((coord) => (coord[1] = Math.min(coord[1] + 1, this.world_size - 1)));
-        left.forEach((coord) => (coord[0] = (coord[0] - 1 + this.world_size) % this.world_size));
+        up.forEach(
+          (coord) => (coord[1] = Math.min(coord[1] + 1, this.world_size - 1))
+        );
+        left.forEach(
+          (coord) =>
+            (coord[0] = (coord[0] - 1 + this.world_size) % this.world_size)
+        );
         right.forEach((coord) => (coord[0] = (coord[0] + 1) % this.world_size));
-        front.forEach((coord) => (coord[2] = (coord[2] - 1 + this.world_size) % this.world_size));
+        front.forEach(
+          (coord) =>
+            (coord[2] = (coord[2] - 1 + this.world_size) % this.world_size)
+        );
         back.forEach((coord) => (coord[2] = (coord[2] + 1) % this.world_size));
 
         // Merge and check potentials
@@ -615,17 +619,6 @@ export class Simulator {
           // Update world with new cells
           newcells.forEach((coord) => {
             // X, Y, Z -> Y, Z, X
-            if (colony === undefined) {
-              console.log("Colony is undefined");
-            }
-            if (coord === undefined || coord.length < 3) {
-              throw new Error("Coord is undefined");
-              console.log("Coord is undefined");
-            }
-            if (coord[3] === 0) {
-              console.log("WHY ARE WE GROWING IF 0!");
-              throw new Error("WHY ARE WE GROWING IF 0!");
-            }
             this.world[coord[1]][coord[2]][coord[0]] = colony.id;
             // Add new cells to the new_cells list
             this.new_cells.push([
@@ -635,6 +628,9 @@ export class Simulator {
               colony.growthForm,
             ]);
             colony.size += 1;
+            
+            // Update the colony's cells per layer
+            colony.cells_per_layer[coord[1]] += 1;
           });
         }
         colony.age += 1;
@@ -653,7 +649,7 @@ export class Simulator {
         ];
         if (this.world[loc[1]][loc[2]][loc[0]] === 0) {
           // Choose form with probability based on the number of live cells of each type
-          let formCount: number[] = [0,0,0,0,0];
+          let formCount: number[] = [0, 0, 0, 0, 0];
           let total = 0;
           for (const colony of this.colonies) {
             formCount[colony.growthForm] += colony.size;
@@ -721,15 +717,71 @@ export class Simulator {
     this.colonies = this.colonies.filter((colony) => colony.alive);
   }
 
-  disturbanceLow() {
-    if (this.ts % this.low_disturb_freq !== 0) return;
+  disturbance() {
+    let disturbance = 0;
+    let echoDisturb = "";
+    if ((this.ts + this.disturb_freq/4) % this.disturb_freq === 0) {
+      disturbance = Math.random() * this.low_disturb_int;
+      echoDisturb = "low";
+    } else if ((this.ts + this.disturb_freq/2) % this.disturb_freq === 0) {
+      disturbance = Math.random() * this.high_disturb_int;
+      echoDisturb = "high";
+    } else return;
 
-    console.log("Low disturbance");
+    console.log(`Disturbance ${echoDisturb} of ${disturbance}`)
 
     for (const colony of this.colonies) {
-      // We need to compute Colony Shape Factor
+
+      let integral = 0;
+      for (let i = 0; i < this.world_size; i++) {
+        integral += (i+1) * colony.cells_per_layer[i];
+      }
       
+      let basal = Array.from({ length: this.world_size }, () =>
+        Array.from({ length: this.world_size }, () => 0)
+      );
+      let colSums = [];
+      for (let x = 0; x < this.world_size; x++) {
+        let sum = 0;
+        for (let z = 0; z < this.world_size; z++) {
+          if (this.world[0][z][x] === colony.id) {
+            basal[z][x] = 1;
+            sum += 1;
+          }
+        }
+        colSums.push(sum);
+      }
+
+      let d1 = Math.max(
+        ...basal.map((row) => row.reduce((sum, val) => sum + Number(val), 0))
+      );
+      let d2 = Math.max(...colSums);
+
+      colony.csf = (16 / (d1 ** 2 * d2 * Math.PI)) * integral;
+
+      // Check if a colony dies
+      if (colony.csf < disturbance) {
+        console.log(
+          `Colony ${colony.id} died due to ${echoDisturb} disturbance.`
+        );
+        // Set world to 0 where disturbed colonies have been removed
+        this.world.forEach((row, y) =>
+          row.forEach((col, z) =>
+            col.forEach((_, x) => {
+              if (this.world[y][z][x] === colony.id) {
+                this.world[y][z][x] = -1;
+                this.dead_cells.push([x, y, z, colony.id]);
+              }
+            })
+          )
+        );
+        colony.alive = false;
+        this.deadcolonies.push(colony);
+        this.nlooplight = 50;
+      }
     }
+    // Remove dead colonies
+    this.colonies = this.colonies.filter((colony) => colony.alive);
   }
 
   // Utility functions
@@ -780,6 +832,10 @@ export class Colony {
   id: number;
   location: number[];
   valid_cells: Cell[];
+  
+  cells_per_layer: number[] = [];
+  d1: number = 0;
+  d2: number = 0;
 
   growthForm: GrowthForm;
   resources: number = 0;
@@ -790,6 +846,7 @@ export class Colony {
 
   // Active parameters
   size = 1;
+  csf = 1;
 
   constructor(
     id: number,
@@ -824,6 +881,9 @@ export class Colony {
         this.valid_cells = tabular;
         break;
     }
+
+    // Initialize cells per layer
+    this.cells_per_layer = Array.from({ length: this.world_size }, () => 0);
   }
 
   getPr(coord: number[]) {
