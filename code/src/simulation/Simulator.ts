@@ -1,3 +1,6 @@
+import { Pane } from "tweakpane";
+import { Chart, registerables } from "chart.js";
+
 // Global valid cells
 let encrusting: Cell[] = [];
 let hemispherical: Cell[] = [];
@@ -25,173 +28,6 @@ function loadCellList(): Promise<any> {
     branching = values[3];
     corymbose = values[4];
   });
-}
-
-// Global morphology initialization
-function initCellList(ws: number) {
-  // Initialize the list of cells based on the growth form
-  const allcells = createCellGrid(ws);
-
-  encrusting = getEncrusting(allcells).filter((cell) => cell.pr! < ws / 2);
-  hemispherical = getHemispherical(allcells).filter(
-    (cell) => cell.pr! < ws / 4
-  );
-  tabular = getTabular(allcells).filter((cell) => cell.pr! < ws / 4);
-  branching = getBranching(allcells, ws).filter((cell) => cell.pr! < ws / 2);
-  corymbose = getCorymbose(allcells).filter((cell) => cell.pr! < ws / 2);
-
-  const fs = require("fs-extra");
-
-  // Save the valid cells to files
-  fs.outputJson(
-    "encrusting.json",
-    JSON.stringify(encrusting, null, 2),
-    (err) => {
-      console.log(err); // => null
-
-      fs.readJson("encrusting.json", (err, data) => {
-        if (err) return console.error(err);
-        console.log(data);
-      });
-    }
-  );
-}
-
-function getEncrusting(allcells: Cell[]) {
-  // Modeled as one dimensional circle
-  const validcells = allcells.filter((cell) => cell.y === 0);
-  validcells.forEach((cell) => {
-    cell.pr = cell.l2_dist;
-  });
-  return validcells;
-}
-
-function getHemispherical(allcells: Cell[]) {
-  const validcells = allcells.filter((cell) => cell.y >= 0);
-  validcells.forEach((cell) => {
-    cell.pr = cell.l2_dist;
-  });
-  return validcells;
-}
-
-function getTabular(allcells: Cell[]) {
-  // The stem is defined by xz_dist and the top is defined by y
-  let stem_height = 20;
-  let stem_radius = 5;
-  const validcells = allcells.filter(
-    (cell) =>
-      ((cell.xz_dist! <= stem_radius && cell.y < stem_height) ||
-        cell.y === stem_height) &&
-      cell.y >= 0
-  );
-  validcells.forEach((cell) => {
-    cell.pr = cell.l2_dist!;
-  });
-  return validcells;
-}
-
-function getBranching(allcells: Cell[], ws: number) {
-  const ok = allcells.map((cell) => cell.xz_dist! <= 1.5);
-
-  // Breakpoints should be generated according to world size
-  const step_size = ws / 2 / 5;
-
-  for (let bp = step_size; bp < ws / 2; bp += step_size) {
-    const y2 = allcells.map((cell) => cell.y - bp);
-    const ok2 = allcells.map(
-      (cell, index) =>
-        Math.sqrt((cell.x + y2[index]) ** 2 + (cell.z + y2[index]) ** 2) <
-          1.5 && y2[index] >= 0
-    );
-    const ok3 = allcells.map(
-      (cell, index) =>
-        Math.sqrt((cell.x - y2[index]) ** 2 + (cell.z + y2[index]) ** 2) <
-          1.5 && y2[index] >= 0
-    );
-    const ok4 = allcells.map(
-      (cell, index) =>
-        Math.sqrt((cell.x + y2[index]) ** 2 + (cell.z - y2[index]) ** 2) <
-          1.5 && y2[index] >= 0
-    );
-    const ok5 = allcells.map(
-      (cell, index) =>
-        Math.sqrt((cell.x - y2[index]) ** 2 + (cell.z - y2[index]) ** 2) <
-          1.5 && y2[index] >= 0
-    );
-
-    ok.forEach((val, index) => {
-      ok[index] = val || ok2[index] || ok3[index] || ok4[index] || ok5[index];
-    });
-  }
-
-  const validcells = allcells.filter(
-    (_, index) => ok[index] && allcells[index].y >= 0
-  );
-  validcells.forEach((cell) => {
-    cell.pr = cell.l2_dist;
-  });
-  return validcells;
-}
-
-function getCorymbose(allcells: Cell[]) {
-  let ok = allcells.map((cell) => cell.xz_dist! <= 1.6);
-  let ang1 = (2 * Math.PI) / 5;
-  for (let ang = ang1; ang <= 2 * Math.PI; ang += ang1) {
-    const dd = allcells.map((cell) => cell.y * Math.tan(Math.PI / 8));
-    const x11 = dd.map((d) => d * Math.sin(ang));
-    const z11 = dd.map((d) => d * Math.cos(ang));
-    const ok2 = allcells.map(
-      (cell, ind) =>
-        Math.sqrt(cell.x - x11[ind]) ** 2 + (cell.z - z11[ind]) ** 2 < 2
-    );
-    ok = ok.map((val, index) => val || ok2[index]);
-  }
-  ang1 = (2 * Math.PI) / 9;
-  for (let ang = ang1 / 3; ang <= 2 * Math.PI; ang += ang1) {
-    const dd = allcells.map((cell) => cell.y * Math.tan(Math.PI / 4));
-    const x11 = dd.map((d) => d * Math.sin(ang));
-    const z11 = dd.map((d) => d * Math.cos(ang));
-    const ok2 = allcells.map(
-      (cell, ind) =>
-        Math.sqrt(cell.x - x11[ind]) ** 2 + (cell.z - z11[ind]) ** 2 < 2
-    );
-    ok = ok.map((val, index) => val || ok2[index]);
-  }
-  ang1 = (2 * Math.PI) / 13;
-  for (let ang = (2 * ang1) / 3; ang <= 2 * Math.PI; ang += ang1) {
-    const dd = allcells.map((cell) => cell.y * Math.tan((3 * Math.PI) / 8));
-    const x11 = dd.map((d) => d * Math.sin(ang));
-    const z11 = dd.map((d) => d * Math.cos(ang));
-    const ok2 = allcells.map(
-      (cell, ind) =>
-        Math.sqrt(cell.x - x11[ind]) ** 2 + (cell.z - z11[ind]) ** 2 < 2
-    );
-    ok = ok.map((val, index) => val || ok2[index]);
-  }
-
-  const validcells = allcells.filter((cell, index) => ok[index] && cell.y >= 0);
-  validcells.forEach((cell) => {
-    cell.pr = cell.l2_dist;
-  });
-  return validcells;
-}
-
-function createCellGrid(ws: number): Cell[] {
-  const allcells: Cell[] = [];
-  for (let y = 0; y < ws; y++) {
-    for (let z = -ws / 2; z < ws / 2; z++) {
-      for (let x = -ws / 2; x < ws / 2; x++) {
-        const cell: Cell = { x, y, z };
-        allcells.push(cell);
-      }
-    }
-  }
-
-  allcells.forEach((cell) => {
-    cell.l2_dist = Math.sqrt(cell.x ** 2 + cell.y ** 2 + cell.z ** 2);
-    cell.xz_dist = Math.sqrt(cell.x ** 2 + cell.z ** 2);
-  });
-  return allcells;
 }
 
 export function getCells(form: GrowthForm, offset: number[]) {
@@ -224,7 +60,17 @@ export function getCells(form: GrowthForm, offset: number[]) {
 }
 
 export class Simulator {
+  ui: SimulatorUI;
   world: number[][][]; // 0 -> barren ground, >0 -> living coral
+
+  // Data to track for graphs
+  // For each time stamp we store:
+  // - number of cells
+  // - current timestamp
+  // - number of % cover
+  // - number of colonies
+  // - rugosity
+  data_frame: number[][] = [];
 
   // Private parameters
   private light: number[][][];
@@ -238,15 +84,18 @@ export class Simulator {
   world_size: number = 100;
 
   // Spawning parameters
-  spawn_freq = 52; // every year
+  spawn_freq = 52 * 2; // every year
   init_agents = 10; // initial agents
   nnew_agents = 5; // new agents on each spawning event
   random_recruits = 1; // 1 random allocation of growth forms, else according to the number of live cells of each colony
 
   // Disturbance parameters
-  disturb_freq = 52 + 26; // every 2 years
-  low_disturb_int = 20; // smaller number is higher disturbance
-  high_disturb_int = 1.5; // smaller number is higher disturbance
+  disturb_freq = 52 * 2; // every 2 years
+  low_disturb_int = 25; // smaller number is higher disturbance
+  high_disturb_int = 3; // smaller number is higher disturbance
+
+  // Sedimentation parameters
+  sediment_freq = 52; // every 3 years
 
   // Light and Substrate parameters
   maint = 0.1;
@@ -255,19 +104,31 @@ export class Simulator {
   light_lvl: number;
   light_side = 0.5;
   light_atten: number;
-  res_cap = 6; // Resource cap: how many units can store energy in each colony
   res_start = 1; // Resource start: how much energy each colony starts with
 
   // Active parameters
   nlooplight = 50; // Number of loops for light to reach bottom
   ts = 0; // Current timestep
   new_cells: number[][] = []; // New cells added in the last step [x, y, z, id]
-  dead_cells: number[][] = [];
+  dead_cells: number[][] = []; // Dead cells added in the last step [x, y, z]
+  new_ground: number[][] = []; // New ground added in the last step [x, y, z]
   next_colony_id = 1;
-
   sim_ready = false;
+  logBuffer: string = "";
+
+  // Graph Data
+  morphologyData: number[] = []; // Count of the total colonies of each morphology
+  percentageCover: number[] = []; // Percentage cover of each morphology (including dead voxels)
+  volumeData: number[] = []; // Volume of each morphology
+  rugosity: number = 0; // Linear rugosity: Mean increase in distance required to traverse over the top of the coral communities relative to a flat sruface without corals
+  diversity: number = 0; // Simpson's Diversity Index: Measure of the diversity of the coral communities 1 - sum((ni/N)^2)
 
   constructor() {
+    this.sim_ready = false;
+    this.ui = new SimulatorUI(this);
+  }
+
+  start() {
     loadCellList().then(() => {
       // Initialize parameters
       this.k = Math.log(1) - Math.log(0.72); // Depth decreasing coefficient
@@ -328,7 +189,7 @@ export class Simulator {
             this.world_size
           )
         );
-        console.log(
+        this.log(
           `New colony ${
             this.next_colony_id
           } at ${location} with form ${formToStr(form)}`
@@ -342,10 +203,13 @@ export class Simulator {
   }
 
   step() {
-    if (this.sim_ready === false) return;
+    if (this.sim_ready === false || this.ts > this.timesteps) return;
+
+    this.ui.updateEvent("", this);
 
     this.new_cells = [];
     this.dead_cells = [];
+    this.new_ground = [];
     let sLight = Date.now();
     this.lightUpdate();
     //console.log(`Light update took ${Date.now() - sLight} ms`);
@@ -368,67 +232,35 @@ export class Simulator {
     this.naturalMortality();
     // Disturbance low/high intensity ----
     this.disturbance();
+
+    // Sedimentation ----
+    this.sedimentation();
+
+    // Update graphs
+    this.saveData();
     this.ts += 1;
   }
 
   lightUpdate() {
     for (let i = 0; i < this.nlooplight; i++) {
       // Update Light but not the top level
-      for (let y = 0; y < this.world_size - 1; y++) {
+      for (let y = this.world_size - 1; 0 < y; y--) {
         for (let z = 0; z < this.world_size; z++) {
           for (let x = 0; x < this.world_size; x++) {
-            // Update the light from the top
-            this.light[y][z][x] = this.light[y + 1][z][x] * this.light_atten;
+            let back =
+              (((z - 1) % this.world_size) + this.world_size) % this.world_size;
+            let front = (z + 1) % this.world_size;
+            let left =
+              (((x - 1) % this.world_size) + this.world_size) % this.world_size;
+            let right = (x + 1) % this.world_size;
+
+            this.light[y - 1][z][x] =
+              this.light[y][z][x] * this.light_atten * 0.5 +
+              this.light[y - 1][back][x] * 0.125 +
+              this.light[y - 1][front][x] * 0.125 +
+              this.light[y - 1][z][left] * 0.125 +
+              this.light[y - 1][z][right] * 0.125;
           }
-        }
-      }
-      // Store a slice without the top level
-      const lighttoside = this.light.slice(0, this.world_size - 1);
-      const lightleft = lighttoside.map((row) =>
-        row.map((col) =>
-          col
-            .slice(1)
-            .concat(col.slice(0, 1))
-            .map((val) => val * 0.25)
-        )
-      );
-      const lightright = lighttoside.map((row) =>
-        row.map((col) =>
-          col
-            .slice(-1)
-            .concat(col.slice(0, -1))
-            .map((val) => val * 0.25)
-        )
-      );
-      const lightup = lighttoside.map((row) =>
-        row
-          .slice(1)
-          .concat(row.slice(0, 1))
-          .map((col) => col.map((val) => val * 0.25))
-      );
-      const lightdown = lighttoside.map((row) =>
-        row
-          .slice(-1)
-          .concat(row.slice(0, -1))
-          .map((col) => col.map((val) => val * 0.25))
-      );
-      for (let y = 0; y < this.world_size - 1; y++) {
-        for (let z = 0; z < this.world_size; z++) {
-          for (let x = 0; x < this.world_size; x++) {
-            this.light[y][z][x] =
-              this.light[y][z][x] -
-              lighttoside[y][z][x] + // remove the base
-              lightleft[y][z][x] + // left
-              lightright[y][z][x] + // right
-              lightup[y][z][x] + // up
-              lightdown[y][z][x]; // down
-          }
-        }
-      }
-      // Update the top level
-      for (let z = 0; z < this.world_size; z++) {
-        for (let x = 0; x < this.world_size; x++) {
-          this.light[this.world_size - 1][z][x] = this.light_lvl;
         }
       }
 
@@ -472,7 +304,7 @@ export class Simulator {
           }
         }
       }
-      colony.resources = Math.min(colony.resources, this.res_cap);
+      colony.resources = Math.min(colony.resources, colony.res_cap);
     }
   }
 
@@ -483,7 +315,7 @@ export class Simulator {
     this.light.forEach((row, y) =>
       row.forEach((col, z) =>
         col.forEach((_, x) => {
-          // If the light level is below the maintenance level, the cell dies
+          // If the light level isbelow  the maintenance level, the cell dies
           if (
             this.lightuptake[y][z][x] < this.maint &&
             this.world[y][z][x] > 0
@@ -492,7 +324,6 @@ export class Simulator {
               deadcells[this.world[y][z][x]] = 0;
               alivecells[this.world[y][z][x]] = 0;
             }
-
             deadcells[this.world[y][z][x]] += 1;
             this.world[y][z][x] = -1;
           } else if (this.world[y][z][x] > 0) {
@@ -510,18 +341,12 @@ export class Simulator {
     for (const key of Object.keys(deadcells)) {
       if (deadcells[key] === alivecells[key]) {
         const id = parseInt(key);
-        console.log(`Colony ${id} died due to light.`);
+        this.log(`Colony ${id} died due to light.`);
         // Set world to 0 where disturbed colonies have been removed
-        this.world.forEach((row, y) =>
-          row.forEach((col, z) =>
-            col.forEach((_, x) => {
-              if (this.world[y][z][x] === id) {
-                this.world[y][z][x] = -1;
-                this.dead_cells.push([x, y, z, id]);
-              }
-            })
-          )
-        );
+        for (let cell of this.colonies[id].cells) {
+          this.world[cell[1]][cell[2]][cell[0]] = -1;
+          this.dead_cells.push([cell[0], cell[1], cell[2]]);
+        }
         this.colonies[id].alive = false;
         const colony = this.colonies.find((colony) => colony.id === id);
         this.deadcolonies.push(colony);
@@ -618,6 +443,7 @@ export class Simulator {
         if (newcells.length > 0) {
           // Update world with new cells
           newcells.forEach((coord) => {
+            let cell = [coord[0], coord[1], coord[2]];
             // X, Y, Z -> Y, Z, X
             this.world[coord[1]][coord[2]][coord[0]] = colony.id;
             // Add new cells to the new_cells list
@@ -627,10 +453,11 @@ export class Simulator {
               coord[2],
               colony.growthForm,
             ]);
+            colony.cells.push(cell);
             colony.size += 1;
-            
+
             // Update the colony's cells per layer
-            colony.cells_per_layer[coord[1]] += 1;
+            colony.profile[coord[1]][coord[0]] = 1;
           });
         }
         colony.age += 1;
@@ -640,7 +467,8 @@ export class Simulator {
 
   spawning() {
     if ((this.ts + this.spawn_freq / 2 + 6) % this.spawn_freq === 0) {
-      console.log("Spawning");
+      this.log("Spawning");
+      this.ui.updateEvent(`Spawning`, this);
       for (let i = 0; i < this.nnew_agents; i++) {
         const loc = [
           Math.floor(Math.random() * this.world_size),
@@ -648,20 +476,19 @@ export class Simulator {
           Math.floor(Math.random() * this.world_size),
         ];
         if (this.world[loc[1]][loc[2]][loc[0]] === 0) {
-          // Choose form with probability based on the number of live cells of each type
-          let formCount: number[] = [0, 0, 0, 0, 0];
-          let total = 0;
-          for (const colony of this.colonies) {
-            formCount[colony.growthForm] += colony.size;
-            total += colony.size;
-          }
-          let prob = formCount.map((val) => val / total);
-
           // Select form based on the number of live cells
           let form = 0;
           if (this.random_recruits === 1) {
             form = Math.floor(Math.random() * 5);
           } else {
+            // Choose form with probability based on the number of live cells of each type
+            let formCount: number[] = [0, 0, 0, 0, 0];
+            let total = 0;
+            for (const colony of this.colonies) {
+              formCount[colony.growthForm] += colony.size;
+              total += colony.size;
+            }
+            let prob = formCount.map((val) => val / total);
             form = sampleProb(prob);
           }
           this.colonies.push(
@@ -675,7 +502,7 @@ export class Simulator {
           );
           this.world[loc[1]][loc[2]][loc[0]] = this.next_colony_id;
           this.new_cells.push([loc[0], loc[1], loc[2], form]);
-          console.log(
+          this.log(
             `New colony ${this.next_colony_id} at ${loc} with form ${formToStr(
               form
             )}`
@@ -683,7 +510,7 @@ export class Simulator {
           this.next_colony_id += 1;
         }
       }
-      this.nlooplight = 49;
+      this.nlooplight = 50;
     }
   }
 
@@ -691,23 +518,18 @@ export class Simulator {
     // Called once per year
     if (this.ts % 52 !== 0) return;
 
+    this.ui.updateEvent(`Natural Mortality`, this);
+
     // Background mortality
     for (const colony of this.colonies) {
       // Check if colony dies
       const mort = Math.random();
       if (mort < colony.mort && colony.alive) {
-        console.log(`Colony ${colony.id} died due to natural mortality.`);
-        // Set world to 0 where disturbed colonies have been removed
-        this.world.forEach((row, y) =>
-          row.forEach((col, z) =>
-            col.forEach((_, x) => {
-              if (this.world[y][z][x] === colony.id) {
-                this.world[y][z][x] = -1;
-                this.dead_cells.push([x, y, z, colony.id]);
-              }
-            })
-          )
-        );
+        this.log(`Colony ${colony.id} died due to natural mortality.`);
+        for (let cell of colony.cells) {
+          this.world[cell[1]][cell[2]][cell[0]] = -1;
+          this.dead_cells.push([cell[0], cell[1], cell[2]]);
+        }
         colony.alive = false;
         this.deadcolonies.push(colony);
         this.nlooplight = 50;
@@ -719,62 +541,59 @@ export class Simulator {
 
   disturbance() {
     let disturbance = 0;
+    let randomSurvive = 0;
     let echoDisturb = "";
-    if ((this.ts + this.disturb_freq/4) % this.disturb_freq === 0) {
+    if ((this.ts + this.disturb_freq / 4) % this.disturb_freq === 0) {
       disturbance = Math.random() * this.low_disturb_int;
       echoDisturb = "low";
-    } else if ((this.ts + this.disturb_freq/2) % this.disturb_freq === 0) {
+      randomSurvive = 0.05;
+    } else if (
+      (this.ts + this.disturb_freq / 2) % (this.disturb_freq * 4) ===
+      0
+    ) {
       disturbance = Math.random() * this.high_disturb_int;
       echoDisturb = "high";
+      randomSurvive = 0.005;
     } else return;
 
-    console.log(`Disturbance ${echoDisturb} of ${disturbance}`)
+    this.log(`Disturbance ${echoDisturb} of ${disturbance}`);
+    this.ui.updateEvent(`Disturbance ${echoDisturb} of ${disturbance}`, this);
 
     for (const colony of this.colonies) {
-
       let integral = 0;
-      for (let i = 0; i < this.world_size; i++) {
-        integral += (i+1) * colony.cells_per_layer[i];
-      }
-      
-      let basal = Array.from({ length: this.world_size }, () =>
-        Array.from({ length: this.world_size }, () => 0)
-      );
-      let colSums = [];
-      for (let x = 0; x < this.world_size; x++) {
+      for (let layer = 0; layer < this.world_size; layer++) {
         let sum = 0;
-        for (let z = 0; z < this.world_size; z++) {
-          if (this.world[0][z][x] === colony.id) {
-            basal[z][x] = 1;
-            sum += 1;
-          }
+        for (let row = 0; row < this.world_size; row++) {
+          sum += colony.profile[layer][row];
         }
-        colSums.push(sum);
+        integral += sum * (layer + 1);
       }
 
-      let d1 = Math.max(
-        ...basal.map((row) => row.reduce((sum, val) => sum + Number(val), 0))
-      );
+      let rowSums = Array.from({ length: this.world_size }, () => 0);
+      let colSums = Array.from({ length: this.world_size }, () => 0);
+      for (let cell of colony.cells) {
+        if (cell[1] === 0) {
+          rowSums[cell[2]] += 1;
+          colSums[cell[0]] += 1;
+        }
+      }
+      let d1 = Math.max(...rowSums);
       let d2 = Math.max(...colSums);
 
-      colony.csf = (16 / (d1 ** 2 * d2 * Math.PI)) * integral;
+      colony.csf = (16 / (Math.pow(d1, 2) * d2 * Math.PI)) * integral;
 
       // Check if a colony dies
-      if (colony.csf < disturbance) {
-        console.log(
-          `Colony ${colony.id} died due to ${echoDisturb} disturbance.`
+      if (colony.csf > disturbance && Math.random() > randomSurvive) {
+        this.log(
+          `Colony ${colony.id}:${formToStr(
+            colony.growthForm
+          )} died due to ${echoDisturb} disturbance.`
         );
         // Set world to 0 where disturbed colonies have been removed
-        this.world.forEach((row, y) =>
-          row.forEach((col, z) =>
-            col.forEach((_, x) => {
-              if (this.world[y][z][x] === colony.id) {
-                this.world[y][z][x] = -1;
-                this.dead_cells.push([x, y, z, colony.id]);
-              }
-            })
-          )
-        );
+        for (let cell of colony.cells) {
+          this.world[cell[1]][cell[2]][cell[0]] = -1;
+          this.dead_cells.push([cell[0], cell[1], cell[2]]);
+        }
         colony.alive = false;
         this.deadcolonies.push(colony);
         this.nlooplight = 50;
@@ -784,47 +603,123 @@ export class Simulator {
     this.colonies = this.colonies.filter((colony) => colony.alive);
   }
 
+  sedimentation() {
+    // Convert random dead colony to sand
+    if (
+      this.ts % this.sediment_freq !== 0 ||
+      this.deadcolonies.length < 1 ||
+      this.ts === 0
+    )
+      return;
+
+    this.log("Sedimentation");
+    this.ui.updateEvent(`Sedimentation`, this);
+
+    const coloniesToSand = Math.floor(Math.random() * this.deadcolonies.length) + 1;
+
+    for (let i = 0; i < coloniesToSand; i++) {
+      if (this.deadcolonies.length < 1) return;
+      const dead =
+        this.deadcolonies[Math.floor(Math.random() * this.deadcolonies.length)];
+      this.log(
+        `Colony ${dead.id}:${formToStr(
+          dead.growthForm
+        )} converted to Barren Ground.`
+      );
+      for (let cell of dead.cells) {
+        this.world[cell[1]][cell[2]][cell[0]] = 0;
+        this.new_ground.push([cell[0], cell[1], cell[2]]);
+      }
+      this.deadcolonies = this.deadcolonies.filter(
+        (colony) => colony.id !== dead.id
+      );
+    }
+    this.nlooplight = 50;
+  }
+
   // Utility functions
 
-  getColCount(): number {
-    return this.colonies.length;
+  saveData() {
+    /**
+    Count of the total colonies of each morphology
+    Percentage cover of each morphology (including dead voxels)
+    Volume of each morphology
+    Linear rugosity: Mean increase in distance required to traverse over the top of the coral communities relative to a flat sruface without corals
+    Simpson's Diversity Index: Measure of the diversity of the coral communities 1 - sum((ni/N)^2) 
+    */
+    // Encrusting, Hemispherical, Tabular, Branching, Corymbose
+    const liveCells = [0, 0, 0, 0, 0];
+    const flatCover = [0, 0, 0, 0, 0];
+    const volumeCover = [0, 0, 0, 0, 0];
+    let rugosity = 0;
+    let diversity = 0;
+
+    let flatWorld = Array.from({ length: this.world_size }, () =>
+      Array.from({ length: this.world_size }, () =>
+        Array.from({ length: 5 }, () => 0)
+      )
+    );
+
+    let htWorld = Array.from({ length: this.world_size }, () =>
+      Array.from({ length: this.world_size }, () => 0)
+    );
+
+    let totalCells = 0;
+    for (let colony of this.colonies) {
+      liveCells[colony.growthForm] += colony.cells.length;
+      totalCells += colony.cells.length;
+      for (let cell of colony.cells) {
+        flatWorld[cell[0]][cell[2]][colony.growthForm] = 1;
+        htWorld[cell[0]][cell[2]] = Math.max(
+          htWorld[cell[0]][cell[2]],
+          cell[1]
+        );
+      }
+    }
+
+    volumeCover.forEach((_, index) => {
+      volumeCover[index] = liveCells[index] / this.world_size ** 3;
+    });
+    this.volumeData = volumeCover;
+
+    flatCover.forEach((_, index) => {
+      flatCover[index] =
+        flatWorld
+          .map((row) => row.map((col) => col[index]))
+          .flat()
+          .reduce((a, b) => a + b, 0) /
+        this.world_size ** 2;
+    });
+
+    // Calculate linear rugosity
+    for (let col = 0; col < this.world_size; col++) {
+      let traverse = this.world_size;
+      for (let row = 1; row < this.world_size; row++) {
+        traverse += Math.abs(htWorld[row][col] - htWorld[row - 1][col]);
+      }
+      rugosity += traverse;
+    }
+    this.rugosity = rugosity / this.world_size;
+
+    // Calculate diversity
+    this.diversity =
+      1 -
+      liveCells
+        .map((val) => (val / totalCells) ** 2)
+        .reduce((a, b) => a + b, 0);
+
+    // Save data
+    this.morphologyData = liveCells;
+    this.percentageCover = flatCover;
+    this.volumeData = volumeCover;
+    this.rugosity = rugosity;
+    this.diversity = diversity;
+
+    this.ui.updateGraphs(this);
   }
 
-  // FROM A DIFFERNET PAPER
-
-  /** Patches of agents are randomly selected and grazed
-   * until a target proportion of the reef is reached. */
-  Grazing() {
-    // Update display
-    // Fish eating based on rugosity
-    // Circular clusters of agents are randomly grazed
-  }
-
-  /**
-   * Thermal disturbance, if triggered causes colonies to bleach and/or die.
-   */
-  Bleaching() {
-    // all coral colonies selected and bleached according to a probability
-    // agents of dying colony die
-    // agents of a surviving bleached colony are converted to bleached agents
-    // update agent colony size
-  }
-
-  /**
-   * Effect of waves and cyclones causes colonies to be dislodged and fragmented.
-   */
-  Dislodgement() {
-    // according to shape factor and cyclone intensity, colonies are dislodged
-    // updated agent colony size
-  }
-
-  /**
-   * Barren ground agents  are converted to sand and vice versa until
-   * the desired sand cover is reached.
-   */
-  Sedimentation() {
-    // sand is added or removed by converting random barren ground
-    // ends when desired sand cover is reached
+  log(msg: string) {
+    this.logBuffer += msg + "\n";
   }
 }
 
@@ -832,13 +727,16 @@ export class Colony {
   id: number;
   location: number[];
   valid_cells: Cell[];
-  
-  cells_per_layer: number[] = [];
+
+  profile: number[][] = [];
+  cells: number[][] = [];
+
   d1: number = 0;
   d2: number = 0;
 
   growthForm: GrowthForm;
   resources: number = 0;
+  res_cap: number = 6;
   alive: boolean = true;
   age: number = 0;
   world_size: number;
@@ -860,30 +758,42 @@ export class Colony {
     this.growthForm = form;
     this.resources = res;
     this.world_size = ws;
-    this.mort = 0.001;
+    this.mort = 0.01;
 
     // Initialize valid cells
     switch (this.growthForm) {
       case GrowthForm.Branching:
         this.valid_cells = branching;
+        this.res_cap = 10;
         break;
       case GrowthForm.Corymbose:
         this.valid_cells = corymbose;
+        this.res_cap = 10;
         break;
       case GrowthForm.Encrusting:
         this.valid_cells = encrusting;
-        this.mort = 0.005;
+        this.mort = 0.1;
+        this.res_cap = 2;
         break;
       case GrowthForm.Hemispherical:
         this.valid_cells = hemispherical;
+        this.mort = 0.05;
+        this.res_cap = 6;
         break;
       case GrowthForm.Tabular:
         this.valid_cells = tabular;
+        this.res_cap = 8;
         break;
     }
 
-    // Initialize cells per layer
-    this.cells_per_layer = Array.from({ length: this.world_size }, () => 0);
+    // Initialize profile
+    this.profile = Array.from({ length: this.world_size }, () =>
+      Array.from({ length: this.world_size }, () => 0)
+    );
+    this.profile[this.location[1]][this.location[0]] = 1;
+
+    // Initialize cells
+    this.cells = [[this.location[0], this.location[1], this.location[2]]];
   }
 
   getPr(coord: number[]) {
@@ -961,5 +871,234 @@ function formToStr(form: GrowthForm) {
       return "Hemispherical";
     case GrowthForm.Tabular:
       return "Tabular";
+  }
+}
+
+class SimulatorUI {
+  eventTracker: HTMLDivElement;
+  params: Pane;
+  monitor: Pane;
+  graph: Pane;
+
+  // Line data
+  chart: Chart;
+
+  constructor(sim: Simulator) {
+    this.eventTracker = document.getElementById(
+      "event-tracker"
+    ) as HTMLDivElement;
+
+    this.params = new Pane({
+      title: "Simulation Parameters",
+      container: document.getElementById("panel-container"),
+    });
+
+    this.params.addBinding(sim, "timesteps", {
+      label: "Timesteps\n[weeks]",
+      min: 1,
+      max: 5200,
+      step: 1,
+    });
+
+    this.params.addBlade({ title: "Spawn Parameters", view: "separator" });
+    this.params.addBinding(sim, "spawn_freq", {
+      label: "Spawn\nFrequency",
+      min: 52,
+      max: 104,
+      step: 1,
+    });
+    this.params.addBinding(sim, "init_agents", {
+      label: "Initial\nPolyps",
+      min: 1,
+      max: 20,
+      step: 1,
+    });
+    this.params.addBinding(sim, "nnew_agents", {
+      label: "New Polyps",
+      min: 1,
+      max: 10,
+      step: 1,
+    });
+    this.params.addBinding(sim, "random_recruits", {
+      label: "Randomize\nForm",
+      min: 0,
+      max: 1,
+      step: 1,
+    });
+
+    this.params.addBlade({
+      title: "Disturbance Parameters",
+      view: "separator",
+    });
+    this.params.addBinding(sim, "disturb_freq", {
+      label: "Disturbance\n Frequency",
+      min: 26,
+      max: 52 * 10,
+      step: 1,
+    });
+    this.params.addBinding(sim, "low_disturb_int", {
+      label: "Low \nDisturbance\n Intensity",
+      min: 10,
+      max: 100,
+      step: 1,
+    });
+    this.params.addBinding(sim, "high_disturb_int", {
+      label: "High\nDisturbance\n Intensity",
+      min: 1.5,
+      max: 5,
+      step: 0.1,
+    });
+
+    this.params.addBlade({
+      title: "Sedimentation Parameters",
+      view: "separator",
+    });
+    this.params.addBinding(sim, "sediment_freq", {
+      label: "Sedimentation\nFrequency",
+      min: 26,
+      max: 100,
+      step: 1,
+    });
+
+    this.params.addBlade({ title: "Light Parameters", view: "separator" });
+    this.params.addBinding(sim, "maint", {
+      label: "Stay\nAlive",
+      min: 0,
+      max: 1,
+      step: 0.01,
+    });
+    this.params.addBinding(sim, "surface_light", {
+      label: "Surface\nLight",
+      min: 0,
+      max: 1,
+      step: 0.01,
+    });
+    this.params.addBinding(sim, "light_side", {
+      label: "Light\nSide",
+      min: 0,
+      max: 1,
+      step: 0.01,
+    });
+    this.params.addBinding(sim, "res_start", {
+      label: "Resource\nStart",
+      min: 1,
+      max: 10,
+      step: 1,
+    });
+
+    const btn = this.params.addButton({ title: "Run" });
+    btn.on("click", () => {
+      sim.start();
+    });
+
+    this.monitor = new Pane({
+      title: "Monitor",
+      container: document.getElementById("log-container"),
+    });
+    this.monitor.addBinding(sim, "logBuffer", {
+      label: "Log",
+      readonly: true,
+      multiline: true,
+      rows: 10,
+    });
+
+    this.graph = new Pane({
+      title: "Graph",
+      container: document.getElementById("graphs-container"),
+    });
+
+    this.initGraphs();
+  }
+
+  initGraphs() {
+    let container = document.getElementById("graphs-container");
+    if (container === null) return;
+
+    let content = container.getElementsByClassName("tp-rotv_c")[0];
+    let canvas = document.createElement("canvas");
+
+    Chart.register(...registerables);
+
+    this.chart = new Chart(canvas, {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: "Encrusting",
+            borderColor: "red",
+            borderWidth: 1,
+            pointRadius: 0,
+            data: [],
+          },
+          {
+            label: "Hemispherical",
+            borderColor: "yellow",
+            borderWidth: 1,
+            pointRadius: 0,
+            data: [],
+          },
+          {
+            label: "Tabular",
+            borderColor: "green",
+            borderWidth: 1,
+            pointRadius: 0,
+            data: [],
+          },
+          {
+            label: "Branching",
+            borderColor: "blue",
+            borderWidth: 1,
+            pointRadius: 0,
+            data: [],
+          },
+          {
+            label: "Corymbose",
+            borderColor: "purple",
+            borderWidth: 1,
+            pointRadius: 0,
+            data: [],
+          },
+        ],
+      },
+      options: {
+        scales: {
+          y: {
+            title: {
+              display: true,
+              text: "% Cover",
+            },
+          },
+          x: {
+            title: {
+              display: true,
+              text: "Time Step",
+            },
+            beginAtZero: true,
+            max: 5200,
+            min: 0,
+            ticks: {
+              stepSize: 100,
+            },
+          },
+        },
+      },
+    });
+    content.appendChild(canvas);
+  }
+
+  updateGraphs(sim: Simulator) {
+    this.chart.data.labels.push(sim.ts);
+    this.chart.data.datasets[0].data.push(sim.percentageCover[0]);
+    this.chart.data.datasets[1].data.push(sim.percentageCover[1]);
+    this.chart.data.datasets[2].data.push(sim.percentageCover[2]);
+    this.chart.data.datasets[3].data.push(sim.percentageCover[3]);
+    this.chart.data.datasets[4].data.push(sim.percentageCover[4]);
+
+    this.chart.update();
+  }
+
+  updateEvent(msg: string, sim: Simulator) {
+    this.eventTracker.innerHTML = `Time step ${sim.ts} - ${msg}`;
   }
 }

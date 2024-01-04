@@ -17,7 +17,7 @@ function initCellList(ws)
   hemispherical = getHemispherical(allcells).filter((cell) => cell.pr < ws / 2);
   tabular = getTabular(allcells).filter((cell) => cell.pr < ws / 2);
   branching = getBranching(allcells, ws).filter((cell) => cell.pr < ws / 2);
-  corymbose = getCorymbose(allcells).filter((cell) => cell.pr < ws / 2);
+  corymbose = getCorymbose(allcells).filter((cell) => cell.pr < ws / 4);
 
   const { outputJson, readJson } = fs;
 
