@@ -1016,6 +1016,7 @@ class SimulatorUI {
 
     let content = container.getElementsByClassName("tp-rotv_c")[0];
     let canvas = document.createElement("canvas");
+    canvas.width = container.clientWidth * 0.99;
 
     Chart.register(...registerables);
 
@@ -1062,6 +1063,7 @@ class SimulatorUI {
         ],
       },
       options: {
+        responsive: false,
         scales: {
           y: {
             title: {

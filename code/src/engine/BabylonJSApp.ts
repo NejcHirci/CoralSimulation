@@ -75,7 +75,12 @@ export class BabylonJSApp {
   createScene() {
     this.scene = new Scene(this.engine);
 
-    this.scene.clearColor = new Color4(0,0,0,1);
+    this.scene.clearColor = new Color4(0,0.15,0.451,1);
+    this.scene.fogColor = new Color3(0,0.15,0.451);
+    this.scene.fogMode = Scene.FOGMODE_LINEAR;
+    this.scene.fogDensity = 0.35;
+    this.scene.fogStart = 0;
+    this.scene.fogEnd = 400;
 
     const camera = new UniversalCamera("Camera", new Vector3(100, 90, 100), this.scene);
     camera.setTarget(new Vector3(0, 0, 0));
@@ -88,10 +93,12 @@ export class BabylonJSApp {
     const ground = MeshBuilder.CreateGround("ground", {width: 100, height: 100}, this.scene);
     ground.position = new Vector3(0, 0, 0);
     let mat =  new StandardMaterial("ground", this.scene);
-    mat.diffuseColor = new Color3(0.8, 0.8, 0.6);
+    mat.diffuseColor = new Color3(0.8, 0.8, 0.8);
+    mat.alpha = 0.5;
     ground.material = mat;
 
     // Create a water cube
+    /*
     const water = MeshBuilder.CreateBox("water", {width: 101, height: 50, depth: 101}, this.scene);
 
     const depthArray = new Float32Array(100 * 100 * 4);
@@ -105,7 +112,7 @@ export class BabylonJSApp {
         block.texture = depthTex;
       }
     });
-
+    */
     return this.scene;
   }
 
