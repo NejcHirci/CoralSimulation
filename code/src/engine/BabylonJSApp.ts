@@ -1,12 +1,11 @@
 import "@babylonjs/core/Debug/debugLayer";
 import "@babylonjs/inspector";
 
-import { WebGPUEngine, Scene, Vector3, Color4, MeshBuilder, UniversalCamera, DirectionalLight, StandardMaterial, Color3, NodeMaterial, RawTexture, NodeMaterialTextureBlocks, ArcRotateCamera } 
+import { WebGPUEngine, Scene, Vector3, Color4, MeshBuilder, DirectionalLight, StandardMaterial, Color3, ArcRotateCamera } 
 from "@babylonjs/core";
 
 import { CellGrid } from "../components/CellGrid";
-import { Simulator, getCells, GrowthForm  } from "../simulation/Simulator";
-import { MarchingCubes } from "../components/MarchingCubes";
+import { Simulator  } from "../simulation/Simulator";
 import { MeshGenerator } from "../components/MeshGenerator";
 
 export class BabylonJSApp {
