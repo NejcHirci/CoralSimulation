@@ -1,11 +1,13 @@
 import "@babylonjs/core/Debug/debugLayer";
 import "@babylonjs/inspector";
 
-import { WebGPUEngine, Scene, Vector3, Color4, MeshBuilder, UniversalCamera, DirectionalLight, StandardMaterial, Color3, NodeMaterial, RawTexture, NodeMaterialTextureBlocks } 
+import { WebGPUEngine, Scene, Vector3, Color4, MeshBuilder, UniversalCamera, DirectionalLight, StandardMaterial, Color3, NodeMaterial, RawTexture, NodeMaterialTextureBlocks, ArcRotateCamera } 
 from "@babylonjs/core";
 
 import { CellGrid } from "../components/CellGrid";
 import { Simulator, getCells, GrowthForm  } from "../simulation/Simulator";
+import { MarchingCubes } from "../components/MarchingCubes";
+import { MeshGenerator } from "../components/MeshGenerator";
 
 export class BabylonJSApp {
   // Canvas and engine
@@ -14,10 +16,11 @@ export class BabylonJSApp {
 
   // BabylonJS objects
   scene!: Scene;
-  camera!: UniversalCamera;
+  camera!: ArcRotateCamera;
 
   // My Objects
   simulator!: Simulator;
+  meshGenerator!: MeshGenerator;
   cellGrid!: CellGrid;
 
   // Simulator updates
@@ -39,7 +42,9 @@ export class BabylonJSApp {
       this.simulator = new Simulator();
 
       this.createScene();
+      
       this.cellGrid = new CellGrid(this.simulator.world_size, this.scene);
+      this.meshGenerator = new MeshGenerator(this.scene, this.simulator.world_size);
 
       // Add resize listener
       window.addEventListener("resize", () => {
@@ -54,7 +59,6 @@ export class BabylonJSApp {
       // Run the simulation step every second
       this.engine.runRenderLoop(() => {
         this.scene.render();
-        //this.scene.debugLayer.show();
         if (!this.inUpdate && this.lastUpdate + this.updateInterval < Date.now() && this.simulator.sim_ready) {
           this.updateSimulator();
         }
@@ -64,9 +68,18 @@ export class BabylonJSApp {
 
   updateSimulator() {
     this.inUpdate = true;
+
+    // Update using Space Colonization
+    this.meshGenerator.AddCorals(this.simulator.new_mesh_corals);
+    this.meshGenerator.Grow(this.simulator.new_mesh_cells);
+    this.meshGenerator.DeadCorals(this.simulator.dead_mesh_cells);
+    this.meshGenerator.RemoveCorals(this.simulator.new_mesh_ground);
+
+    // Update using InstancedMesh
     this.cellGrid.addCells(this.simulator.new_cells);
     this.cellGrid.deadCells(this.simulator.dead_cells);
     this.cellGrid.bareGround(this.simulator.new_ground);
+    
     this.simulator.step();
     this.lastUpdate = Date.now();
     this.inUpdate = false;
@@ -82,37 +95,23 @@ export class BabylonJSApp {
     this.scene.fogStart = 0;
     this.scene.fogEnd = 400;
 
-    const camera = new UniversalCamera("Camera", new Vector3(100, 90, 100), this.scene);
+    const camera = new ArcRotateCamera("Camera", Math.PI / 4, Math.PI / 3, 130, new Vector3(0, 0, 0), this.scene);
     camera.setTarget(new Vector3(0, 0, 0));
+    camera.attachControl(this.canvas, true);
     this.camera = camera;
 
     // Create a light
-    const light = new DirectionalLight("light", new Vector3(0, -1, 0), this.scene);
-    light.intensity = 1;
+    const light = new DirectionalLight("light", new Vector3(-1, -1, 0), this.scene);
+    light.intensity = 2;
 
     const ground = MeshBuilder.CreateGround("ground", {width: 100, height: 100}, this.scene);
     ground.position = new Vector3(0, 0, 0);
+    ground.receiveShadows = true;
     let mat =  new StandardMaterial("ground", this.scene);
     mat.diffuseColor = new Color3(0.8, 0.8, 0.8);
     mat.alpha = 0.5;
     ground.material = mat;
 
-    // Create a water cube
-    /*
-    const water = MeshBuilder.CreateBox("water", {width: 101, height: 50, depth: 101}, this.scene);
-
-    const depthArray = new Float32Array(100 * 100 * 4);
-    const depthTex = RawTexture.CreateRGBAStorageTexture(depthArray, 100, 100, this.scene);
-    water.position = new Vector3(0, 25, 0);
-    let testMaterial = NodeMaterial.ParseFromSnippetAsync(("JDJXE4#11"), this.scene).then((nodeMat) => {
-      nodeMat.name = "nodeMaterial";
-      water.material = nodeMat;
-      let block = nodeMat.getBlockByPredicate((b) => b.name === "Texture") as NodeMaterialTextureBlocks;
-      if (block) {
-        block.texture = depthTex;
-      }
-    });
-    */
     return this.scene;
   }
 

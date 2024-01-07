@@ -88,8 +88,7 @@ function getTabular(allcells) {
   const validcells = allcells.filter(
     (cell) =>
       ((cell.xz_dist <= stem_radius && cell.y < stem_height) ||
-        cell.y === stem_height) &&
-      cell.y >= 0
+        cell.y === stem_height) //&& cell.y >= 0
   );
   validcells.forEach((cell) => {
     cell.pr = cell.l2_dist;
@@ -98,10 +97,10 @@ function getTabular(allcells) {
 }
 
 function getBranching(allcells, ws) {
-  const ok = allcells.map((cell) => cell.xz_dist <= 1.5);
+  const ok = allcells.map((cell) => cell.xz_dist <= 1);
 
   // Breakpoints should be generated according to world size
-  const step_size = ws / 2 / 5;
+  const step_size = ws / 2 / 10;
 
   for (let bp = step_size; bp <= ws / 2; bp += step_size) {
     const y2 = allcells.map((cell) => cell.y - bp);
@@ -132,7 +131,7 @@ function getBranching(allcells, ws) {
   }
 
   const validcells = allcells.filter(
-    (_, index) => ok[index] && allcells[index].y >= 0
+    (_, index) => ok[index] //&& allcells[index].y >= 0
   );
   validcells.forEach((cell) => {
     cell.pr = cell.l2_dist;
@@ -177,7 +176,7 @@ function getCorymbose(allcells) {
   }
 
   const validcells = allcells.filter(
-    (cell, index) => ok[index] && cell.y >= 0
+    (cell, index) => ok[index]
   );
   validcells.forEach((cell) => {
     cell.pr = cell.l2_dist;

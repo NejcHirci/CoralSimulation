@@ -18,5 +18,8 @@
     "noImplicitReturns": true, // raises an error for functions that return nothing
     "skipLibCheck": true // skip type-checking of .d.ts files (it speeds up transpiling)
   },
-  "include": ["src"] // specify location(s) of .ts files
+  "include": [
+    "definitions.d.ts",
+    "src/**/*"
+    ] // specify location(s) of .ts files
 }

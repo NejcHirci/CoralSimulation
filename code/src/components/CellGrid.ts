@@ -31,7 +31,7 @@ export class CellGrid {
   }
 
   generateBaseInstance(scene: Scene) {
-    let mesh = MeshBuilder.CreateSphere('sphere', {diameter: 1, segments: 1}, scene);
+    let mesh = MeshBuilder.CreateSphere('sphere', {diameter: 1, segments: 3}, scene);
     mesh.setAbsolutePosition(new Vector3(0, 0, 0));
     mesh.registerInstancedBuffer("color", 4);
     mesh.instancedBuffers.color = new Color4(1,1,1,1);

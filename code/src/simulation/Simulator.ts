@@ -1,5 +1,6 @@
 import { Pane } from "tweakpane";
 import { Chart, registerables } from "chart.js";
+import exp from "constants";
 
 // Global valid cells
 let encrusting: Cell[] = [];
@@ -80,25 +81,25 @@ export class Simulator {
 
   // User defined parameters
   runs: number = 1;
-  timesteps: number = 52 * 100; // 100 years
+  timesteps: number = 52 * 10; 
   world_size: number = 100;
 
   // Spawning parameters
-  spawn_freq = 52 * 2; // every year
+  spawn_freq = 52; // every year
   init_agents = 10; // initial agents
   nnew_agents = 5; // new agents on each spawning event
   random_recruits = 1; // 1 random allocation of growth forms, else according to the number of live cells of each colony
 
   // Disturbance parameters
-  disturb_freq = 52 * 2; // every 2 years
-  low_disturb_int = 25; // smaller number is higher disturbance
-  high_disturb_int = 3; // smaller number is higher disturbance
+  disturb_freq = 52 * 3; // every 3 years
+  low_disturb_int = 40; // smaller number is higher disturbance
+  high_disturb_int = 10; // smaller number is higher disturbance
 
   // Sedimentation parameters
-  sediment_freq = 52; // every 3 years
+  sediment_freq = 30; // every 30 weeks
 
   // Light and Substrate parameters
-  maint = 0.1;
+  maint = 0.2;
   surface_light = 1.0;
   k: number; // Depth decreasing coefficient
   light_lvl: number;
@@ -109,7 +110,14 @@ export class Simulator {
   // Active parameters
   nlooplight = 50; // Number of loops for light to reach bottom
   ts = 0; // Current timestep
-  new_cells: number[][] = []; // New cells added in the last step [x, y, z, id]
+
+  // For Space Colonization
+  new_mesh_corals: number[][] = []; // New corals added in the last step [x, y, z, id, form]
+  new_mesh_cells: number[][] = []; // New cells added in the last step [x, y, z, id]
+  new_mesh_ground: number[] = []; // New ground added in the last step [id]
+  dead_mesh_cells: number[] = []; // Dead corals added in the last step [id]
+
+  new_cells: number[][] = []; // New cells added in the last step [x, y, z, form]
   dead_cells: number[][] = []; // Dead cells added in the last step [x, y, z]
   new_ground: number[][] = []; // New ground added in the last step [x, y, z]
   next_colony_id = 1;
@@ -117,19 +125,37 @@ export class Simulator {
   logBuffer: string = "";
 
   // Graph Data
-  morphologyData: number[] = []; // Count of the total colonies of each morphology
-  percentageCover: number[] = []; // Percentage cover of each morphology (including dead voxels)
-  volumeData: number[] = []; // Volume of each morphology
-  rugosity: number = 0; // Linear rugosity: Mean increase in distance required to traverse over the top of the coral communities relative to a flat sruface without corals
-  diversity: number = 0; // Simpson's Diversity Index: Measure of the diversity of the coral communities 1 - sum((ni/N)^2)
+  morpData1: number[] = []; // Count of the total colonies of each morphology
+  morpData2: number[] = []; // Count of the total colonies of each morphology
+  morpData3: number[] = []; // Count of the total colonies of each morphology
+  morpData4: number[] = []; // Count of the total colonies of each morphology
+  morpData5: number[] = []; // Count of the total colonies of each morphology
+
+  flatCover1: number[] = []; // Percentage cover of each morphology (including dead voxels)
+  flatCover2: number[] = []; // Percentage cover of each morphology (including dead voxels)
+  flatCover3: number[] = []; // Percentage cover of each morphology (including dead voxels)
+  flatCover4: number[] = []; // Percentage cover of each morphology (including dead voxels)
+  flatCover5: number[] = []; // Percentage cover of each morphology (including dead voxels)
+
+  volumeCover1: number[] = []; // Volume of each morphology
+  volumeCover2: number[] = []; // Volume of each morphology
+  volumeCover3: number[] = []; // Volume of each morphology
+  volumeCover4: number[] = []; // Volume of each morphology
+  volumeCover5: number[] = []; // Volume of each morphology
+
+  rugosity: number[] = []; // Linear rugosity: Mean increase in distance required to traverse over the top of the coral communities relative to a flat sruface without corals
+  diversity: number[] = []; // Simpson's Diversity Index: Measure of the diversity of the coral communities 1 - sum((ni/N)^2)
+
+  loadCells: Promise<any>;
 
   constructor() {
     this.sim_ready = false;
     this.ui = new SimulatorUI(this);
+    this.loadCells = loadCellList();
   }
 
   start() {
-    loadCellList().then(() => {
+    this.loadCells.then(() => {
       // Initialize parameters
       this.k = Math.log(1) - Math.log(0.72); // Depth decreasing coefficient
       this.light_lvl = this.surface_light * Math.pow(Math.exp(1), -this.k * 0);
@@ -195,7 +221,18 @@ export class Simulator {
           } at ${location} with form ${formToStr(form)}`
         );
         this.world[location[1]][location[2]][location[0]] = this.next_colony_id;
-        this.new_cells.push([location[0], location[1], location[2], form]);
+        if (form <= 2) {
+          // OLD
+          this.new_cells.push([location[0], location[1], location[2], form]);
+        } else {
+          this.new_mesh_corals.push([
+            location[0],
+            location[1],
+            location[2],
+            this.next_colony_id,
+            form,
+          ]);
+        }
         this.next_colony_id += 1;
       }
       this.sim_ready = true;
@@ -207,10 +244,14 @@ export class Simulator {
 
     this.ui.updateEvent("", this);
 
+    this.new_mesh_cells = [];
+    this.new_mesh_corals = [];
+    this.new_mesh_ground = [];
+    this.dead_mesh_cells = [];
     this.new_cells = [];
     this.dead_cells = [];
     this.new_ground = [];
-    let sLight = Date.now();
+
     this.lightUpdate();
     //console.log(`Light update took ${Date.now() - sLight} ms`);
 
@@ -343,12 +384,17 @@ export class Simulator {
         const id = parseInt(key);
         this.log(`Colony ${id} died due to light.`);
         // Set world to 0 where disturbed colonies have been removed
-        for (let cell of this.colonies[id].cells) {
-          this.world[cell[1]][cell[2]][cell[0]] = -1;
-          this.dead_cells.push([cell[0], cell[1], cell[2]]);
-        }
-        this.colonies[id].alive = false;
         const colony = this.colonies.find((colony) => colony.id === id);
+        for (let cell of colony.cells) {
+          this.world[cell[1]][cell[2]][cell[0]] = -1;
+          if (colony.growthForm <= 2) {
+            this.dead_cells.push([cell[0], cell[1], cell[2]]);
+          }
+        }
+        if (colony.growthForm > 2) {
+          this.dead_mesh_cells.push(id);
+        }
+        colony.alive = false;
         this.deadcolonies.push(colony);
         this.nlooplight = 50;
       }
@@ -446,13 +492,22 @@ export class Simulator {
             let cell = [coord[0], coord[1], coord[2]];
             // X, Y, Z -> Y, Z, X
             this.world[coord[1]][coord[2]][coord[0]] = colony.id;
-            // Add new cells to the new_cells list
-            this.new_cells.push([
-              coord[0],
-              coord[1],
-              coord[2],
-              colony.growthForm,
-            ]);
+            if (colony.growthForm <= 2) {
+              // OLD
+              this.new_cells.push([
+                coord[0],
+                coord[1],
+                coord[2],
+                colony.growthForm,
+              ]);
+            } else {
+              this.new_mesh_cells.push([
+                coord[0],
+                coord[1],
+                coord[2],
+                colony.id,
+              ]);
+            }
             colony.cells.push(cell);
             colony.size += 1;
 
@@ -501,7 +556,18 @@ export class Simulator {
             )
           );
           this.world[loc[1]][loc[2]][loc[0]] = this.next_colony_id;
-          this.new_cells.push([loc[0], loc[1], loc[2], form]);
+          if (form <= 2) {
+            // OLD
+            this.new_cells.push([loc[0], loc[1], loc[2], form]);
+          } else {
+            this.new_mesh_corals.push([
+              loc[0],
+              loc[1],
+              loc[2],
+              this.next_colony_id,
+              form,
+            ]);
+          }
           this.log(
             `New colony ${this.next_colony_id} at ${loc} with form ${formToStr(
               form
@@ -516,7 +582,7 @@ export class Simulator {
 
   naturalMortality() {
     // Called once per year
-    if (this.ts % 52 !== 0) return;
+    if (this.ts % 52 !== 0 || this.ts == 0) return;
 
     this.ui.updateEvent(`Natural Mortality`, this);
 
@@ -528,7 +594,12 @@ export class Simulator {
         this.log(`Colony ${colony.id} died due to natural mortality.`);
         for (let cell of colony.cells) {
           this.world[cell[1]][cell[2]][cell[0]] = -1;
-          this.dead_cells.push([cell[0], cell[1], cell[2]]);
+          if (colony.growthForm <= 2) {
+            this.dead_cells.push([cell[0], cell[1], cell[2]]);
+          }
+        }
+        if (colony.growthForm > 2) {
+          this.dead_mesh_cells.push(colony.id);
         }
         colony.alive = false;
         this.deadcolonies.push(colony);
@@ -540,15 +611,16 @@ export class Simulator {
   }
 
   disturbance() {
+    if (this.ts === 0) return;
     let disturbance = 0;
     let randomSurvive = 0;
     let echoDisturb = "";
-    if ((this.ts + this.disturb_freq / 4) % this.disturb_freq === 0) {
+    if (this.ts % this.disturb_freq === 0) {
       disturbance = Math.random() * this.low_disturb_int;
       echoDisturb = "low";
       randomSurvive = 0.05;
     } else if (
-      (this.ts + this.disturb_freq / 2) % (this.disturb_freq * 4) ===
+      (this.ts + this.disturb_freq / 2) % this.disturb_freq ===
       0
     ) {
       disturbance = Math.random() * this.high_disturb_int;
@@ -592,7 +664,12 @@ export class Simulator {
         // Set world to 0 where disturbed colonies have been removed
         for (let cell of colony.cells) {
           this.world[cell[1]][cell[2]][cell[0]] = -1;
-          this.dead_cells.push([cell[0], cell[1], cell[2]]);
+          if (colony.growthForm <= 2) {
+            this.dead_cells.push([cell[0], cell[1], cell[2]]);
+          }
+        }
+        if (colony.growthForm > 2) {
+          this.dead_mesh_cells.push(colony.id);
         }
         colony.alive = false;
         this.deadcolonies.push(colony);
@@ -606,32 +683,36 @@ export class Simulator {
   sedimentation() {
     // Convert random dead colony to sand
     if (
-      this.ts % this.sediment_freq !== 0 ||
-      this.deadcolonies.length < 1 ||
-      this.ts === 0
+      (this.ts + this.sediment_freq / 2) % this.sediment_freq !== 0 ||
+      this.deadcolonies.length < 1
     )
       return;
 
     this.log("Sedimentation");
     this.ui.updateEvent(`Sedimentation`, this);
 
-    const coloniesToSand = Math.floor(Math.random() * this.deadcolonies.length) + 1;
-
+    // Sedimentation should be done so at least 50% of the dead colonies are converted to sand
+    const coloniesToSand = this.deadcolonies.length / 2;
     for (let i = 0; i < coloniesToSand; i++) {
       if (this.deadcolonies.length < 1) return;
-      const dead =
+      const ground =
         this.deadcolonies[Math.floor(Math.random() * this.deadcolonies.length)];
       this.log(
-        `Colony ${dead.id}:${formToStr(
-          dead.growthForm
+        `Colony ${ground.id}:${formToStr(
+          ground.growthForm
         )} converted to Barren Ground.`
       );
-      for (let cell of dead.cells) {
+      if (ground.growthForm > 2) {
+        this.new_mesh_ground.push(ground.id);
+      }
+      for (let cell of ground.cells) {
         this.world[cell[1]][cell[2]][cell[0]] = 0;
-        this.new_ground.push([cell[0], cell[1], cell[2]]);
+        if (ground.growthForm <= 2) {
+          this.new_ground.push([cell[0], cell[1], cell[2]]);
+        }
       }
       this.deadcolonies = this.deadcolonies.filter(
-        (colony) => colony.id !== dead.id
+        (colony) => colony.id !== ground.id
       );
     }
     this.nlooplight = 50;
@@ -680,7 +761,6 @@ export class Simulator {
     volumeCover.forEach((_, index) => {
       volumeCover[index] = liveCells[index] / this.world_size ** 3;
     });
-    this.volumeData = volumeCover;
 
     flatCover.forEach((_, index) => {
       flatCover[index] =
@@ -699,23 +779,38 @@ export class Simulator {
       }
       rugosity += traverse;
     }
-    this.rugosity = rugosity / this.world_size;
+    rugosity /= this.world_size;
 
     // Calculate diversity
-    this.diversity =
+    diversity =
       1 -
       liveCells
         .map((val) => (val / totalCells) ** 2)
         .reduce((a, b) => a + b, 0);
 
     // Save data
-    this.morphologyData = liveCells;
-    this.percentageCover = flatCover;
-    this.volumeData = volumeCover;
-    this.rugosity = rugosity;
-    this.diversity = diversity;
+    this.morpData1.push(liveCells[0]);
+    this.morpData2.push(liveCells[1]);
+    this.morpData3.push(liveCells[2]);
+    this.morpData4.push(liveCells[3]);
+    this.morpData5.push(liveCells[4]);
 
-    this.ui.updateGraphs(this);
+    this.flatCover1.push(flatCover[0]);
+    this.flatCover2.push(flatCover[1]);
+    this.flatCover3.push(flatCover[2]);
+    this.flatCover4.push(flatCover[3]);
+    this.flatCover5.push(flatCover[4]);
+
+    this.volumeCover1.push(volumeCover[0]);
+    this.volumeCover2.push(volumeCover[1]);
+    this.volumeCover3.push(volumeCover[2]);
+    this.volumeCover4.push(volumeCover[3]);
+    this.volumeCover5.push(volumeCover[4]);
+    
+    this.rugosity.push(rugosity);
+    this.diversity.push(diversity);
+
+    this.ui.updateGraphs();
   }
 
   log(msg: string) {
@@ -772,7 +867,7 @@ export class Colony {
         break;
       case GrowthForm.Encrusting:
         this.valid_cells = encrusting;
-        this.mort = 0.1;
+        this.mort = 0.05;
         this.res_cap = 2;
         break;
       case GrowthForm.Hemispherical:
@@ -782,7 +877,7 @@ export class Colony {
         break;
       case GrowthForm.Tabular:
         this.valid_cells = tabular;
-        this.res_cap = 8;
+        this.res_cap = 6;
         break;
     }
 
@@ -818,9 +913,9 @@ export class Colony {
 }
 
 export enum GrowthForm {
-  Encrusting, // Leather Corals
-  Hemispherical, // Brain Corals
-  Tabular, // Table Corals
+  Encrusting, // Leather Corals OLD
+  Hemispherical, // Brain Corals OLD
+  Tabular, // Table Corals OLD
   Branching, // Staghorn Corals
   Corymbose, // Plate Corals
 }
@@ -875,6 +970,7 @@ function formToStr(form: GrowthForm) {
 }
 
 class SimulatorUI {
+  sim: Simulator;
   eventTracker: HTMLDivElement;
   params: Pane;
   monitor: Pane;
@@ -882,15 +978,20 @@ class SimulatorUI {
 
   // Line data
   chart: Chart;
+  chartCanvas: HTMLCanvasElement;
+  graphMode: string = "cover";
+  title: string = "Percentage Cover";
 
   constructor(sim: Simulator) {
+    Chart.register(...registerables);
     this.eventTracker = document.getElementById(
       "event-tracker"
     ) as HTMLDivElement;
-
+    this.sim = sim;
     this.params = new Pane({
       title: "Simulation Parameters",
       container: document.getElementById("panel-container"),
+      expanded: false,
     });
 
     this.params.addBinding(sim, "timesteps", {
@@ -945,7 +1046,7 @@ class SimulatorUI {
     this.params.addBinding(sim, "high_disturb_int", {
       label: "High\nDisturbance\n Intensity",
       min: 1.5,
-      max: 5,
+      max: 10,
       step: 0.1,
     });
 
@@ -989,11 +1090,13 @@ class SimulatorUI {
     const btn = this.params.addButton({ title: "Run" });
     btn.on("click", () => {
       sim.start();
+      btn.disabled = true;
     });
 
     this.monitor = new Pane({
       title: "Monitor",
       container: document.getElementById("log-container"),
+      expanded: false,
     });
     this.monitor.addBinding(sim, "logBuffer", {
       label: "Log",
@@ -1005,62 +1108,169 @@ class SimulatorUI {
     this.graph = new Pane({
       title: "Graph",
       container: document.getElementById("graphs-container"),
+      expanded: false,
     });
 
-    this.initGraphs();
-  }
-
-  initGraphs() {
+    this.graph.addBlade({
+      view: "list",
+      label: "Type",
+      options: [
+        { value: "cover", text: "Percentage Cover" },
+        { value: "volume", text: "Volume" },
+        { value: "rugosity", text: "Rugosity" },
+        { value: "diversity", text: "Diversity" },
+      ],
+      value: "cover",
+    });
+    this.graph.on("change", (event) => {
+      switch (event.value) {
+        case "cover":
+          this.title = "Percentage Cover";
+          break;
+        case "volume":
+          this.title = "Percentage Volume";
+          break;
+        case "rugosity":
+          this.title = "Rugosity";
+          break;
+        case "diversity":
+          this.title = "Diversity";
+          break;
+      }
+      this.graphMode = event.value as string;
+      this.initGraph();
+    });
+    this.graph.addButton({ title: "Download" }).on("click", () => {
+      const a = document.createElement("a");
+      a.href = this.chart.toBase64Image();
+      a.download = `chart_${this.graphMode}.png`;
+      a.click();
+    });
+    
     let container = document.getElementById("graphs-container");
     if (container === null) return;
 
     let content = container.getElementsByClassName("tp-rotv_c")[0];
-    let canvas = document.createElement("canvas");
-    canvas.width = container.clientWidth * 0.99;
+    this.chartCanvas = document.createElement("canvas");
+    this.chartCanvas.width = container.clientWidth * 0.99;
+    content.appendChild(this.chartCanvas);
 
-    Chart.register(...registerables);
+    this.initGraph();
+  }
+  initGraph() {
+    if (this.chart) {
+      this.chart.destroy();
+    }
 
-    this.chart = new Chart(canvas, {
-      type: "line",
-      data: {
-        labels: [],
-        datasets: [
+    let datasets = [];
+    switch (this.graphMode) {
+      case "cover":
+        datasets = [
           {
             label: "Encrusting",
             borderColor: "red",
             borderWidth: 1,
             pointRadius: 0,
-            data: [],
+            data: this.sim.flatCover1,
           },
           {
             label: "Hemispherical",
             borderColor: "yellow",
             borderWidth: 1,
             pointRadius: 0,
-            data: [],
+            data: this.sim.flatCover2,
           },
           {
             label: "Tabular",
             borderColor: "green",
             borderWidth: 1,
             pointRadius: 0,
-            data: [],
+            data: this.sim.flatCover3,
           },
           {
             label: "Branching",
             borderColor: "blue",
             borderWidth: 1,
             pointRadius: 0,
-            data: [],
+            data: this.sim.flatCover4,
           },
           {
             label: "Corymbose",
             borderColor: "purple",
             borderWidth: 1,
             pointRadius: 0,
-            data: [],
+            data: this.sim.flatCover5,
           },
-        ],
+        ];
+        break;
+      case "volume":
+        datasets = [
+          {
+            label: "Encrusting",
+            borderColor: "red",
+            borderWidth: 1,
+            pointRadius: 0,
+            data: this.sim.volumeCover1,
+          },
+          {
+            label: "Hemispherical",
+            borderColor: "yellow",
+            borderWidth: 1,
+            pointRadius: 0,
+            data: this.sim.volumeCover2,
+          },
+          {
+            label: "Tabular",
+            borderColor: "green",
+            borderWidth: 1,
+            pointRadius: 0,
+            data: this.sim.volumeCover3,
+          },
+          {
+            label: "Branching",
+            borderColor: "blue",
+            borderWidth: 1,
+            pointRadius: 0,
+            data: this.sim.volumeCover4,
+          },
+          {
+            label: "Corymbose",
+            borderColor: "purple",
+            borderWidth: 1,
+            pointRadius: 0,
+            data: this.sim.volumeCover5,
+          },
+        ];
+        break;
+      case "rugosity":
+        datasets = [
+          {
+            label: this.title,
+            borderColor: "red",
+            borderWidth: 1,
+            pointRadius: 0,
+            data: this.sim.rugosity,
+          },
+        ];
+        break;
+      case "diversity":
+        datasets = [
+          {
+            label: this.title,
+            borderColor: "red",
+            borderWidth: 1,
+            pointRadius: 0,
+            data: this.sim.diversity,
+          },
+        ];
+        break;
+    }
+
+    this.chart = new Chart(this.chartCanvas, {
+      type: "line",
+      data: {
+        labels: Array.from({ length: this.sim.ts }, (_, i) => i),
+        datasets: datasets,
       },
       options: {
         responsive: false,
@@ -1068,7 +1278,7 @@ class SimulatorUI {
           y: {
             title: {
               display: true,
-              text: "% Cover",
+              text: this.title,
             },
           },
           x: {
@@ -1086,17 +1296,34 @@ class SimulatorUI {
         },
       },
     });
-    content.appendChild(canvas);
   }
 
-  updateGraphs(sim: Simulator) {
-    this.chart.data.labels.push(sim.ts);
-    this.chart.data.datasets[0].data.push(sim.percentageCover[0]);
-    this.chart.data.datasets[1].data.push(sim.percentageCover[1]);
-    this.chart.data.datasets[2].data.push(sim.percentageCover[2]);
-    this.chart.data.datasets[3].data.push(sim.percentageCover[3]);
-    this.chart.data.datasets[4].data.push(sim.percentageCover[4]);
-
+  updateGraphs() {
+    this.chart.data.labels.push(this.sim.ts);
+    //this.chart.data.labels.push(this.sim.ts);
+    
+    // switch (this.graphMode) {
+    //   case "cover":
+    //     this.chart.data.datasets[0].data.push(this.sim.percentageCover[this.sim.ts][0]);
+    //     this.chart.data.datasets[1].data.push(this.sim.percentageCover[this.sim.ts][1]);
+    //     this.chart.data.datasets[2].data.push(this.sim.percentageCover[this.sim.ts][2]);
+    //     this.chart.data.datasets[3].data.push(this.sim.percentageCover[this.sim.ts][3]);
+    //     this.chart.data.datasets[4].data.push(this.sim.percentageCover[this.sim.ts][4]);
+    //     break;
+    //   case "volume":
+    //     this.chart.data.datasets[0].data.push(this.sim.volumeData[this.sim.ts][0]);
+    //     this.chart.data.datasets[1].data.push(this.sim.volumeData[this.sim.ts][1]);
+    //     this.chart.data.datasets[2].data.push(this.sim.volumeData[this.sim.ts][2]);
+    //     this.chart.data.datasets[3].data.push(this.sim.volumeData[this.sim.ts][3]);
+    //     this.chart.data.datasets[4].data.push(this.sim.volumeData[this.sim.ts][4]);
+    //     break;
+    //   case "rugosity":
+    //     //this.chart.data.datasets[0].data.push(this.sim.rugosity[this.sim.ts]);
+    //     break;
+    //   case "diversity":
+    //     //this.chart.data.datasets[0].data.push(this.sim.diversity[this.sim.ts]);
+    //     break;
+    // }
     this.chart.update();
   }
 
