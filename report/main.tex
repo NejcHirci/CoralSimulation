@@ -13,6 +13,7 @@
 
 \usepackage{subcaption}
 \usepackage{graphicx}
+\usepackage{float}
 
 %\selectlanguage{slovene}
 %\etal{in sod.} % comment out when writing in english
@@ -34,7 +35,7 @@
 
 \newcommand{\num}[1]{#1}
 
-\title{Simulating Coral Competition and Growth under a Simulated Environment}
+\title{Simulating Coral Competition and Growth in a 3D Environment}
 
 % Use letters for affiliations, numbers to show equal authorship (if applicable) and to indicate the corresponding author
 \author{Nejc Hirci}
@@ -48,7 +49,7 @@
 
 % Please add here a significance statement to explain the relevance of your work
 \significancestatement{Significance Statements}{
-Understanding coral competition and growth dynamics is vital for effective restoration in response to climate-induced threats to coral reefs. Inspired by Cresswell \etal~\cite{coral_community_3D}, we implement accretive growth principles in their proposed model, capturing diverse ecological processes.
+Understanding coral competition and growth dynamics is vital for effective restoration in response to climate-induced threats to coral reefs. Inspired by Cresswell \etal~\cite{coral_community_3D}, we implement space colonization growth principles in their proposed model, capturing diverse ecological processes.
 }
 
 
@@ -63,8 +64,7 @@ Understanding coral competition and growth dynamics is vital for effective resto
 
 \begin{abstract}
 
-This article introduces a new extension to coral simulation models, merging a three-dimensional cellular automata growth model with a complex model of coral growth. In response to climate-induced threats to coral reefs, understanding coral competition and growth dynamics is vital for effective restoration. Inspired by Cresswell \etal~\cite{coral_community_3D}, we implement accretive growth principles in their proposed model, capturing diverse ecological processes. Implemented with WebGPU compute shaders for parallelism, the model efficiently simulates multiple scales. Developed as a web application using Node.js and Typescript, the model integrates Babylon.js for realistic 3D rendering. This research contributes a visually compelling real-time simulation model, enhancing our understanding of coral community dynamics and offering insights crucial for reef restoration and conservation in the face of environmental challenges. While our implementation still requires much optimization, it is already publicly available on the following website 
-\url{https://nejchirci.github.io/CoralSimulation}.
+This article introduces a new extension to coral simulation models, merging a three-dimensional cellular automata growth model with a complex model of coral growth. In response to climate-induced threats to coral reefs, understanding coral competition and growth dynamics is vital for effective restoration. Inspired by Cresswell \etal~\cite{coral_community_3D}, we implement space colonization growth principles in their proposed model, capturing diverse ecological processes. The real-time simulation of the model is developed as a web-application available at \url{https://nejchirci.github.io/CoralSimulation}. This research contributes a visually compelling real-time simulation model, enhancing our understanding of coral community dynamics and offering insights for reef restoration and conservation in the face of environmental challenges.
 \end{abstract}
 
 \dates{\textbf{\today}}
@@ -85,106 +85,153 @@ This article introduces a new extension to coral simulation models, merging a th
 
 \section*{Introduction}
 
-In marine biology, coral reefs have been an essential research subject for many years due to their importance in preserving marine wildlife and their naturally high biodiversity. Unfortunately, they are also one of the ecosystems most susceptible to the various environmental changes brought about by climate change. Much of current marine research focuses on the restoration efforts of coral reefs, for which it is crucial to understand the environmental factors that affect coral communities. For such purposes, we need ways to adequately simulate many complicated ecological processes in four dimensions. Much existing research focuses on empirically tested models, which provide essential simulation output variables (\eg coral communities coverage) but are often limited to two dimensions. While not directly concerned with full coral reef simulations, some recent studies showed impressive results~\cite{sponge_growth, inifinigen} in generating realistic three-dimensional coral models using different growth simulation approaches. Such models lack simulations of the middle and large-scale ecological processes (\eg bleaching and grazing) but can offer a good starting point for simulating individual coral growth. We propose extending an existing three-dimensional~\cite{coral_community_3D} coral reef model with a more complex growth model. Due to the complexity of computation needed to simulate such environments on multiple scales, we implement our solution relying on parallelism offered by WebGPU compute shaders. 
+In marine biology, coral reefs have been an essential research subject for many years due to their importance in preserving marine wildlife and their naturally high biodiversity. Unfortunately, they are also one of the ecosystems most susceptible to the various environmental changes brought about by climate change. Much of current marine research focuses on the restoration efforts of coral reefs, for which it is crucial to understand the environmental factors that affect coral communities. For such purposes, we need ways to adequately simulate many complicated ecological processes in four dimensions. Much existing research focuses on empirically tested models, which provide essential simulation output variables (\eg coral communities coverage) but are often limited to two dimensions. We provide a real-time implementation of an existing three-dimensional~\cite{coral_community_3D} coral reef model with some extensions to the coral growth simulation.
 
 \section*{Related Work}
 
-Most simulation models that focus on analyzing the behavior of coral reefs limit themselves to a two-dimensional setting because introducing another spatial dimension requires a considerably more complex growth model. They are still helpful in analyzing important secondary variables such as the percentage cover of each coral community, the number of new coral recruits, and the rugosity created by coral colonies. They form a theoretical baseline for some of the more recent three-dimensional models~\cite{coral_community_3D}.
+Most models that focus on analyzing the behavior of coral reefs limit themselves to a two-dimensional setting because introducing another spatial dimension requires a considerably more complex growth model. They form a theoretical baseline for some of the more recent three-dimensional models~\cite{coral_community_3D}.
 
-One of the recent review studies by Weijerman \etal~\cite{coral_models_review} describes a precise categorization of ecological model design approaches based on their leading principles. One of the major leading principles is to design models suited for extrapolation and long-term projections of coral community dynamics. These models require complex sub-models of various ecological processes and often rely on prior research to achieve realistic long-term predictions. These approaches often accept a trade-off between system understanding and its predictive capabilities by using simpler sub-modules in their simulation. Compared to simpler data-driven models, they lose some of the robustness and interpretability of results but can provide long-term projections that are still useful in many practical scenarios.
+One of the recent review studies by Weijerman \etal~\cite{coral_models_review} describes a precise categorization of ecological model design approaches based on their leading principles. One of the major leading principles is to design models suited for extrapolation and long-term projections of coral community dynamics. These require complex sub-models of various ecological processes and often rely on prior research to achieve realistic long-term predictions.
 
-Researchers often rely on individual or agent-based models to explore coral competition under changing conditions. They are well suited to introduce coral-community dynamics based on diversity, functional individual traits, and demography of a coral reef. Importantly, they can be used with submodels of varying complexity. This is seen in a recently developed model by Carturan \etal~\cite{coral_community_main}, extended with trait-based approaches from existing trait databases. Their model shows an extensive set of simulated ecological processes (bleaching, reproduction, sedimentation, algae invasion, \etc) and includes a set of 798 functionally realistic species defined using 11 functional traits carefully designed from empirical data. Given their model's complexity, it can be argued that a simple two-dimensional grid of cell agents is adequate to achieve suitable predictions of coral population dynamics. In our approach, we decided to simplify some processes to introduce a more complex three-dimensional coral growth model, albeit still based on cellular automata.
+Agent-based approaches are most commonly used to explore coral competition under changing conditions. They are well suited to introduce coral-community dynamics based on diversity, functional individual traits, and demography of a coral reef, and can be used with submodels of varying complexity. This is seen in a recently developed model by Carturan \etal~\cite{coral_community_main}, extended with trait-based approaches from existing databases. Their model shows an extensive set of simulated ecological processes (bleaching, reproduction, sedimentation, algae invasion, \etc) and includes a set of 798 functionally realistic species defined using 11 functional traits carefully designed from empirical data.
 
-One of the more common criticisms against agent-based models is their complex analysis and validation, but well-defined design protocols have addressed this in recent years~\cite{agent_based_validation}. The proposed Overview, Design Concepts, and Details (ODD) protocol defines how to describe individual- and agent-based models. We follow their principles in describing our model.
+Turning our attention to three-dimensional simulation models, one of the recent papers by Cresswell \etal~\cite{coral_community_3D} describes a three-dimensional functional-structural model, \textit{Coralcraft}, focused on investigating the influence of hydrodynamic disturbances on coral communities. They simulate five different coral morphologies: encrusting, hemispherical, tabular, corymbose, and branching, with a three-dimensional cell grid. Light, shading, nutrient distribution, and hydrodynamic disturbances all influence the growth of each polyp. They cover major ecological processes, growth, recruitment, and mortality but lack some minor ones, like algae invasions, bleaching, and dislodgement. Nevertheless, they provide a reliable baseline we use in our work.
 
-Turning our attention to three-dimensional simulation models, one of the recent papers by Cresswell \etal~\cite{coral_community_3D} describes a three-dimensional functional-structural model, Coralcraft, focused on investigating the influence of hydrodynamic disturbances on coral communities. They simulate five different coral morphologies: encrusting, hemispherical, tabular, corymbose, and branching, with a three-dimensional cell grid. Light, shading, nutrient distribution, and hydrodynamic disturbances all influence the growth of each polyp. They cover major ecological processes, growth, recruitment, and mortality but lack some minor ones, like algae invasions, bleaching, and dislodgement. Nevertheless, they provide a reliable baseline we use in our work.
+While there have been only few three-dimensional simulation models, we can find several three-dimensional growth models that provide somewhat realistic results. They provide general models of either stone or soft corals, because of significant differences between them. The former form hard external calcium carbonate skeletons, while the latter are held together by jelly-like mesoglea and internal rigid structures~\cite{corals_book_1983}. Merks \etal~\cite{polyp_growth} were one of the first to address growth on a polyp-level scale. Their performs voxelization to polyps, resource transport in the environment, and the accretion step of actual growth on each mesh vertex. Kaandorp \etal~\cite{Kaandorp_2013} later extended their work by introducing a fluid flow model and an extension of the dispersion of nutrients by advection-diffusion. Recent work by O'Hagan \etal~\cite{sponge_growth} noted that their accretive growth model may only partially fit to simulate the coral growth of sponges. 
 
-Most coral simulation models focus on providing useful projected variables that describe the health and state of a coral reef. They do not, however, in most cases concern themselves with providing geometrically realistic results. The reason is that modeling realistic coral growth is a complex problem, which may lower the robustness of a complex coral reef model.
-
-While there have been only a few three-dimensional coral community dynamics models, we can find several three-dimensional growth models that provide somewhat realistic results. Most general models usually consider themselves modeling stone or soft corals. They have significant anatomical differences because stone corals form hard external calcium carbonate skeletons, while soft corals are held together by jelly-like mesoglea and internal rigid structures~\cite{corals_book_1983}. Due to this, most general coral growth models simulate one or the other. 
-
-One of the well-established models presented by Merks \etal~\cite{polyp_growth} was one of the first to address growth on a polyp-level scale. Their growth schema starts from initial conditions, then performs voxelization to polyps, resource transport in the environment, and the accretion step of actual growth. Kaandorp \etal~\cite{Kaandorp_2013} later extended their work by introducing a fluid flow model and an extended model of the dispersion of nutrients by advection-diffusion. They also showed that their model can adequately simulate branching sponges and stone corals. Recent work by O'Hagan \etal~\cite{sponge_growth} noted that their accretive growth model may only partially fit to simulate the coral growth of sponges. They introduce an extension by improving the initial skeletal architecture and using an accretive growth model afterward.
-
-In computer graphics, some research focuses more on creating realistic procedural models of corals without simulating the actual growth. A recent paper by Raistrick \etal ~\cite{inifinigen} proposed a comprehensive procedural generator that can produce numerous 3D scenes of the natural world. While it simulates many common natural phenomena such as fire, clouds, rain, \etc, it focuses only on providing an excellent visual presentation of the natural biomes. They describe many exciting approaches to procedurally model coral morphologies (leather corals, table corals, branching corals, \etc). While visually striking, these do not apply to simulation models with realistic growth projections.
-
-In our work, we propose an extension to existing models~\cite{coral_community_3D} by providing useful visualizations of coral community dynamics but with a combination of a complex growth model based on accretive growth. We will implement our approach in a compute shader using the modern web graphics pipeline, WebGPU, and deploy a publicly available application.
+We found the accretive growth model to be too complex, to be integrated on top of the existing \textit{Coralcraft} model. We use a less performance, intensive method based on the space colonization algorithm. In its most recent form it was described by Runions~\etal~\cite{space_colonization_3d} specifically for generating realistic tree structures. It works by growing a skeleton from the root node towards the nearest points of attraction, which represent the distributed nutrients in our case. We introduce some minor modifications, to utilize this approach in generating the branching and corymbose corals, which more closely resemble tree canopies.
 
 \section*{Methods}
 
-This section describes our CPU-based implementation of the three-dimensional cellular automata growth model mimicking the approach proposed in \textit{Coralcraft} and a proposed model validation.
+The \textit{Coralcraft} model demonstrates the impact of hydrodynamic disturbances on coral communities. It uses $1cm^3$ voxels to represent the lowest spatial level of computation, equivalent to one coral colony polyp. The model integrates sub-modules of the main ecological processes of growth, reproduction, mortality, and hydrodynamic disturbance. It describes five functional morphologies: branching, tabular, encrusting, hemispherical, and corymbose corals, as shown in Figure~\ref{fig:morphologies}.
 
-As described in work by Cresswell \etal., the \textit{CoralCraft} model focuses on simulating the influence of hydrodynamic disturbances on coral communities. Their approach divides the model environment into $1cm^3$ voxels, representing the lowest spatial level at which all computation occurs, and are equivalent to one coral colony polyp.
-
-The initial implementation captures the main ecological processes of growth, reproduction, mortality, and hydrodynamic disturbance. The model describes five possible functional morphologies, which represent a branching, tabular, encrusting, hemispherical, and corymbose coral, and can be seen in Figure~\ref{fig:morphologies}. The simulation step is equivalent to a week passed and proceeds in the following steps:
-
-
-\begin{enumerate}
-    \item Light attenuation and shading from existing coral colonies are computed at every voxel.
-    \item Resources are distributed to coral polyps according to light levels.
-    \item Coral polyps, with insufficient resources, die, which can lead to the colony's death.
-    \item All live polyps are grown according to their colony morphologies.
-\end{enumerate}
-
-\begin{figure}[!htb]
+\begin{figure}[H]
     \centering
-    \begin{subfigure}{0.3\textwidth}
+    \begin{subfigure}{0.12\textwidth}
         \includegraphics[width=\textwidth]{fig/branching.png}
-        \caption{}
     \end{subfigure}
-    \begin{subfigure}{0.3\textwidth}
+    \begin{subfigure}{0.12\textwidth}
         \includegraphics[width=\textwidth]{fig/hemispherical.png}
-        \caption{}
     \end{subfigure}
-    \begin{subfigure}{0.3\textwidth}
+    \begin{subfigure}{0.12\textwidth}
         \includegraphics[width=\textwidth]{fig/encrusting.png}
-        \caption{}
     \end{subfigure}
-    \begin{subfigure}{0.3\textwidth}
+    \begin{subfigure}{0.12\textwidth}
         \includegraphics[width=\textwidth]{fig/corymbose.png}
-        \caption{}
     \end{subfigure}
-    \begin{subfigure}{0.3\textwidth}
+    \begin{subfigure}{0.12\textwidth}
         \includegraphics[width=\textwidth]{fig/tabular.png}
-        \caption{}
     \end{subfigure}
-    \caption{Five coral morphologies: (a) Branching, (b) Hemispherical, (c) Encrusting, (d) Corymbose, (e) Tabular.}
+    \caption{Five coral morphologies (left to right): Branching, Hemispherical, Encrusting, Corymbose, Tabular.}
     \label{fig:morphologies}
 \end{figure}
 
-In addition, the reproduction and hydrodynamic disturbances are at different frequencies. Reproduction is simulated as a random occupation of voxels on the seafloor (y==0) once every year, where we choose the morphologies of recruits according to the number of all coral cells belonging to each of the five morphologies.
+The simulation steps are presented in Figure~\ref{fig:base_model} and consist of the initial placement of colonies; light attenuation and nutrient distribution; growth and dead of corals according to the amount of received resources.
 
-Notably, the initially proposed model integrated the impact of hydrodynamic disturbances by computing the colony shape factor (CSF). It is a dimensionless index of mechanical vulnerability to horizontal forces. The formula considers the side profile of the colony along with the size of the basal attachment to the sea floor. When a hydrodynamic disturbance occurs, we compute the CSF of each colony, which we use as the probability of the colony getting dislodged, which causes the death of the polyp cells.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\textwidth]{fig/model.png}
+    \caption{The baseline \textit{Coralcraft} model~\cite{coral_community_3D}.}
+    \label{fig:base_model}
+\end{figure}
 
-We aimed to implement the first CPU-based version of the model, but we plan to validate its correctness in our following report. We will do that by tracking important output variables of the models as described in the original paper and comparing them to empirical data of a naturally growing coral reef. These variables are \textit{coral colony morphology density}, \textit{linear rugosity}, which describes the level of branching of the whole reef, \textit{morphological diversity}, and the \textit{occupied volume of each morphology}. 
+The most expensive step in the simulation is the computation of light attenuation. It is calculated at each vertical layer of the cellular grid, where 99.67\% of light is passed to voxels in the layer below (based on the Beer-Lambert-Bouguer law). To account for shading, 50\% of light travels directly downwards and the other 50\% is equally distributed among neighboring voxels.
 
-We develop a web application with the simulation model using established web development technologies, such as Node.js~\cite{nodejs} and the Typescript programming language. We use a publicly available library Babylon.js~\cite{babylonjs} for rendering the 3D scene. For the next version of the implementation, we plan to add more realistic rendering and a faster simulation computation using WebGPU~\cite{webgpu} compute shaders.
+Additionally, the simulation includes the processes of reproduction, sedimentation, natural mortality, and hydrodynamic disturbance with specified frequencies. Reproduction is simulated as a random occupation of voxels on the seafloor (y==0) once every year, where we choose the morphologies of recruits according to the number of cells belonging to each morphology.
 
-%. With that, we will be able to establish that our fluid and nutrient simulations work correctly and assess their model's performance. Next, we plan to introduce an accretive growth coral model as initially presented by Merks \etal. We will consider how we can closely model three of the morphologies shown in Coralcraft. We will focus more on the functional representation of the coral models because simulating realistic growth will be out of our work's scope. As a last inclusion, we will extend our model with additional ecological processes critical to coral reef dynamics, like bleaching and dislodgement, which will, in turn, influence our growth model. We plan to validate our model by observing simulation outputs, like percentage cover, volume, and colony density, and comparing them to existing case studies of specific coral reefs.
+Hydrodynamic disturbances are integrated by computing the colony shape factor (CSF), a dimensionless index of mechanical vulnerability to horizontal forces. The formula considers the side profile of the colony along with the size of the basal attachment to the sea floor,
 
-%We will implement a web-based application of our model, relying on established web development technologies, such as Node.js~\cite{nodejs} and Typescript programming language, to provide a publicly available website with our proposed model. Our initial model implementation will rely only on a CPU-based simulation algorithm. Still, due to the complexity of coral growth, we anticipate that a GPU-based implementation will be needed. The new web graphical API, WebGPU~\cite{webgpu}, offers support for using compute shaders for performing various computations in parallel on the GPU. We plan to leverage the robust capabilities it provides to implement the calculation of our simulation. Because rendering underwater environments is a complex problem that requires the implementation of many specific light phenomena (\eg caustics), we provide only a simple rendering of our simulation using an established rendering library Three.js~\cite{threejs}.
+\begin{equation*}
+    \text{CSF} = \frac{16}{d_{\text{profile}}^2d_{\text{basal}}} \int_{y=0}^h y w(y) dy
+\end{equation*}
+
+where $d_{\text{profile}}$ $d_{\text{basal}}$ are measured to be the number of voxels parallel and perpendicular, to a horizontal wave motion. Higher shape factor means poorer structural robustness.
+
+We extend the growth ob branching and corymbose corals with the space colonization algorithm, to more closely resemble real-life corals. We do not use it for tabular, encrusting, and brain corals, which do not exhibit strong branching behaviors. The space colonization works by procedurally growing the branches of the coral from the root polyp in the directions of the nutrient distributions, but still in accordance with the overall shape specified by the \textit{Coralcraft} model. This yields greater variation and more realistic results than the initial model.
+
+We validate our model by observing simulation outputs of flat percentage cover, volume percentage cover, linear rugosity, and diversity of the model. Linear rugosity is an important indicator of the overall robustness of the reef, as well as the abundance of marine life and species. It describes the structural complexity of the reef, calculated as the ratio of the distance required to cover a fixed flat distance when traversing coral communities. The diversity of the simulation is computed using Simpson’s Diversity Index, 
+
+\begin{equation}
+    \text{SDI} = 1 - \sum (\frac{n}{N})^2
+\end{equation}
+
+where $n$ is the number of individuals displaying a specific morphology and $N$ is the total number of individuals. In our case with 5 morphological types, the highest possible diversity is 0.8.
+
+We developed a web application using established web development technologies, such as Node.js~\cite{nodejs} and the Typescript programming language, and the Babylon.js~\cite{babylonjs} library for rendering the scene. We also include a user interface, which offers control over different simulation parameters, tracking of simulation events, and visualizing the output variables. 
 
 \section*{Results}
 
-Our implemented model shows promising results in the simulation of the coral growths. We have yet to validate the produced output with empirical real-world data, but we can already see many parameters working as expected.
+We simulate 10 years of coral growth under different levels of hydrodynamic disturbance. First, we use the estimated fixed frequency of disturbances as used in the \textit{Coralcraft} research paper, that is every two years varying between low and high intensities. The Figure~\ref{fig:moderate}, shows that encrusting and hemispherical corals start to dominate the reef very soon, and while the rugosity of the model, does slowly increase, the diversity drops significantly.
 
-\begin{figure}[!htb]
+\begin{figure}[H]
     \centering
-    \includegraphics[width=0.7\textwidth]{fig/simulation_2.png}
-    \caption{Example of initial implementation.}
-    \label{fig:simulation}
+    \begin{subfigure}{0.35\textwidth}
+        \includegraphics[width=\textwidth]{fig/moderate_chart_cover.jpg}
+    \end{subfigure}
+        \begin{subfigure}{0.35\textwidth}
+        \includegraphics[width=\textwidth]{fig/moderate_chart_volume.jpg}
+    \end{subfigure}
+        \begin{subfigure}{0.35\textwidth}
+        \includegraphics[width=\textwidth]{fig/moderate_chart_diversity.jpg}
+    \end{subfigure}
+        \begin{subfigure}{0.35\textwidth}
+        \includegraphics[width=\textwidth]{fig/moderate_chart_rugosity.jpg}
+    \end{subfigure}
+        \begin{subfigure}{0.25\textwidth}
+        \includegraphics[width=\textwidth]{fig/moderate_visual.png}
+    \end{subfigure}
+    \caption{Showing results (from left to right and from up down) of flat cover, volume cover, diversity, linear rugosity, and visualisation for moderate occasional disturbance.}
+    \label{fig:moderate}
 \end{figure}
 
-In Figure~\ref{fig:simulation}, we can see an example of a simulation after a couple of years. The current visual representation uses a very simplistic rendering model, where all polyps are rendered as colored spheres. Each colony is colored appropriately depending on its morphology class, with the grayed-out cells representing dead colonies. 
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.35\textwidth}
+        \includegraphics[width=\textwidth]{fig/low_chart_cover.jpg}
+    \end{subfigure}
+        \begin{subfigure}{0.35\textwidth}
+        \includegraphics[width=\textwidth]{fig/low_chart_volume.jpg}
+    \end{subfigure}
+        \begin{subfigure}{0.35\textwidth}
+        \includegraphics[width=\textwidth]{fig/low_chart_diversity.jpg}
+    \end{subfigure}
+        \begin{subfigure}{0.35\textwidth}
+        \includegraphics[width=\textwidth]{fig/low_chart_rugosity.jpg}
+    \end{subfigure}
+        \begin{subfigure}{0.25\textwidth}
+        \includegraphics[width=\textwidth]{fig/low_final.png}
+    \end{subfigure}
+    \caption{Showing results (from left to right and from up down) of flat cover, volume cover, diversity, linear rugosity, and visualisation for common low disturbance.}
+    \label{fig:low_common}
+\end{figure}
+
+In Figure~\ref{fig:low_common} we can see that even low common disturbances, lead to lower levels of diversity, but through time we can see the reef rebuilding itself, as seen when diversity increases again at the end of the 10 year simulation.
+
+Lastly, we compare the visual results of our model in Figure~\ref{fig:compare}, to the initial \textit{Coralcraft} model, which shows poorer variability and realism of branching and corymbose coral species.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.35\textwidth}
+        \includegraphics[width=\textwidth]{fig/my_result.png}
+    \end{subfigure}
+    \begin{subfigure}{0.35\textwidth}
+        \includegraphics[width=\textwidth]{fig/Coralcraft.png}
+    \end{subfigure}
+    \caption{Results of 2 years of simulation between our model on the left and \textit{Coralcraft} model on the right.}
+    \label{fig:compare}
+\end{figure}
 
 \section*{Discussion}
 
-Observing initial results, we can already see the expected higher death rate of branching and corymbose corals. Their death is mainly due to their faster growth at the expense of coral skeleton stability, which leads to a lower coral shape factor.
+We optimized the \textit{Coralcraft} model for real-time use. The model reacted to hydrodynamic disturbances as expected, based on the original paper. The reef declined in rugosity and diversity under moderate or high disturbances, leading to reef death in the long run. With low disturbances the diversity also dropped through the simulation, but the reef managed to recover. This matched the original paper and real coral data, but would have to be studied further with a more complex growth model.
 
-We want to comment that the current model implementation is a recreation of the original paper and, as such, lacks the proper optimization required for real-time use and interaction. We will rewrite the implementation to be executed with GPU-based compute shaders to achieve that, considerably increasing the performance. After that, we will improve the growth model and validate its results. The validation will utilize the empirical data offered in the original paper based on the extracted simulation variables described in the previous section. Lastly, we will extend the user interface with control of the simulation parameters and visualization of validation metrics described in the previous section. 
+The space colonization algorithm enhanced the branching corals’ appearance and diversity, but sea current simulations could improve it more. They affect polyp size and growth direction. Our basic version conflicted with the initial growth model. This was due to the \textit{Coralcraft}’s simple resource simulation based only on light distribution, and would be significantly improved with a fluid simulation and nutrient filtration submodel, but at significant cost to performance.
 
-\section*{Conclusion}
+The initial implementation of the model was very poorly optimized, consuming a lot of memory and computational resources. Therefore, we had to improve both the simulation and rendering process to achieve better performance. For the simulation process, we used more dedicated classes to track intermediary results instead of duplicating large three-dimensional matrices, for each variable of the cellular automata. For the rendering process, we relied on GPU instancing, which can render large numbers of identical meshes in one draw call, reducing the overhead and improving the frame rate. By using these techniques, we were able to create a real-time optimized version of the \textit{Coralcraft} model.
 
-While we are happy with our ability to reproduce the proposed coral simulation model successfully, the current implementation still requires much optimization. As previously stated, we also want to improve the current coral growth model to mimic the visual appearance of real-life corals more closely.
+We focused on optimizing and rendering the original \textit{Coralcraft} implementation, which was a challenging and rewarding task. We also explored the possibility of using accretive growth for a more realistic growth model, but we found that the current web technologies do not support the fluid simulation solvers that are required for this approach. We also experimented with WebGPU compute shaders to improve the performance of the simulation, but discovered that the initial model’s light distribution method could not be computed in parallel. Therefore, we decided to use the space colonization algorithm for the growth model.
+
+The implementation of a real-time web version of the model with improved visuals, user interface, and growth model was a successful outcome of this project. We believe that our work contributes to the advancement of coral reef modeling and visualization.
 
 % \pnasbreak splits and balances the columns before the references.
 % If you see unexpected formatting errors, try commenting out this line
